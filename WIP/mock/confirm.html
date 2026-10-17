@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – confirm</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  /* Safe choice is huge and at the bottom; the destructive one sits above it, is never where the trigger was, and needs a 2 s hold. */
+  .app { grid-template-columns:1fr; grid-template-rows:auto 2fr 3fr; grid-template-areas:"msg" "danger" "safe"; }
+  @media (min-aspect-ratio:5/4) { .app { grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; grid-template-areas:"msg danger" "safe safe"; } }
+  #msg { grid-area:msg; } #danger { grid-area:danger; justify-content:flex-end; } #safe { grid-area:safe; justify-content:flex-end; }
+  #danger, #safe { user-select:none; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script src="shared.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  const what = q.get('what') || 'measurement';
+  const back = q.get('back') || 'measure.html', done = q.get('done') || 'start.html';
+  const T = {
+    measurement: { head: 'Discard this measurement?', lose: 'Everything entered so far will be lost.', hold: 'HOLD TO DISCARD', safe: 'CONTINUE MEASURING' },
+    table:       { head: 'Delete this saved table?', lose: 'It cannot be restored.', hold: 'HOLD TO DELETE', safe: 'KEEP IT' },
+    all:         { head: 'Erase everything?', lose: 'All boats, tables and preferences on this device will be lost.', hold: 'HOLD TO ERASE', safe: 'KEEP MY DATA' }
+  }[what] || {};
+  Mock.$('#app').innerHTML = `
+    <div class="t" id="msg"><div class="k">Please confirm</div><div class="v md">${T.head}</div><div class="sub">${T.lose}</div></div>
+    <div class="t danger" id="danger"><div class="k">Press and hold for 2 seconds</div><div class="v lg">${T.hold}</div></div>
+    <a class="t acc" id="safe" href="${back}"><div class="k">Nothing is lost</div><div class="v lg">${T.safe}</div></a>`;
+  Mock.hold(Mock.$('#danger'), 2000, () => { location.href = done; });
+</script>
+</body>
+</html>

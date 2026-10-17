@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – start</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app { grid-template-columns:1fr 1fr; grid-template-rows:2fr 2fr 1fr; grid-template-areas:"brand brand" "start start" "saved settings"; }
+  @media (min-aspect-ratio:5/4) {
+    .app { grid-template-columns:1.4fr 1fr; grid-template-rows:2fr 1fr 1fr; grid-template-areas:"brand start" "brand saved" "brand settings"; }
+  }
+  #brand { grid-area:brand; justify-content:center; gap:2vmin; }
+  #brand svg { width:clamp(64px,16vmin,180px); height:auto; }
+  #start { grid-area:start; justify-content:flex-end; }
+  #saved { grid-area:saved; justify-content:flex-end; }
+  #settings { grid-area:settings; justify-content:flex-end; }
+  .name { font-size:clamp(34px,9vmin,100px); font-weight:300; letter-spacing:.14em; }
+  .state { font-size:clamp(14px,2.4vmin,26px); max-width:34ch; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="t" id="brand">
+    <svg viewBox="0 0 120 80" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+      <line x1="4" y1="40" x2="116" y2="40" stroke-width="1.5" opacity=".5"/>
+      <path d="M4 40 C 24 6, 44 6, 60 40 S 96 74, 116 40"/>
+      <circle cx="60" cy="40" r="5" fill="currentColor"/>
+    </svg>
+    <div class="name">DEVIATOR</div>
+    <div class="state">Swing your compass. Build your deviation table. Convert any course. Offline, on any device.</div>
+  </div>
+  <a class="t acc" id="start" href="setup.html"><div class="k">Measure deviation</div><div class="v lg">START</div></a>
+  <a class="t alt" id="saved" href="saved.html"><div class="k">Saved</div><div class="btn">Deviation tables</div></a>
+  <a class="t alt" id="settings" href="settings.html?from=start.html"><div class="k">Preferences</div><div class="btn">Settings</div></a>
+</div>
+<script src="shared.js"></script>
+<script>
+  /* Saved tables only appear once at least one exists; the mock always has samples. */
+  const hasSaved = true;
+  if (!hasSaved) { document.getElementById('saved').remove(); document.getElementById('app').style.gridTemplateAreas = '"brand brand" "start start" "settings settings"'; }
+</script>
+</body>
+</html>

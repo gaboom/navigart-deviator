@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – deviation table</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app {
+    grid-template-columns:1fr 1fr; grid-template-rows:auto auto minmax(120px,1fr) auto auto auto auto;
+    grid-template-areas:"in out" "dev tc" "chart chart" "table table" "mcc mmc" "tape tape" "acts acts";
+  }
+  @media (min-aspect-ratio:5/4) {
+    .app {
+      grid-template-columns:1.3fr 1.3fr 1fr 1fr; grid-template-rows:1fr 1fr auto auto auto;
+      grid-template-areas:"chart chart in out" "chart chart dev tc" "table table mcc mmc" "tape tape tape tape" "acts acts acts acts";
+    }
+  }
+  #in { grid-area:in; } #out { grid-area:out; } #dev { grid-area:dev; } #tc { grid-area:tc; }
+  #chartT { grid-area:chart; padding:0; }
+  #chartT .k { position:absolute; left:clamp(8px,1.6vmin,20px); top:clamp(6px,1.2vmin,14px); z-index:1; }
+  #table { grid-area:table; display:grid; grid-template-columns:repeat(var(--cols,8),1fr); gap:var(--gap); }
+  .cell { background:var(--tile); padding:clamp(6px,1.2vmin,14px) 0; text-align:center; cursor:pointer; }
+  .cell .h { font-size:clamp(11px,1.6vmin,16px); color:var(--muted); font-variant-numeric:tabular-nums; }
+  .cell .d { font-size:clamp(16px,3vmin,30px); font-weight:600; font-variant-numeric:tabular-nums; }
+  .cell.on { background:var(--acc); color:var(--accfg); } .cell.on .h { color:var(--accfg); }
+  #mCC { grid-area:mcc; } #mMC { grid-area:mmc; }
+  .modeb { font-size:clamp(15px,2.6vmin,26px); font-weight:600; justify-content:center; text-align:center; }
+  button.t.modeb.on { background:var(--fg); color:var(--tile); }
+  #acts { grid-area:acts; display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--gap); height:clamp(52px,8vmin,90px); }
+  #acts .t { justify-content:center; align-items:center; text-align:center; font-weight:600; font-size:clamp(14px,2.8vmin,28px); }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="t" id="in"><div class="k" id="inLbl">Compass</div><div class="v xl" id="inVal"></div></div>
+  <div class="t acc" id="out"><div class="k" id="outLbl">Magnetic</div><div class="v xl" id="outVal"></div></div>
+  <div class="t alt" id="dev"><div class="k">Deviation</div><div class="v md" id="devVal"></div></div>
+  <button class="t alt" id="tc" title="Tap to adjust variation for True course"><div class="k">True</div><div class="v md" id="tcVal"></div><div class="sub" id="varTxt"></div></button>
+  <div class="t" id="chartT"><div class="k" id="chartK"></div><canvas id="chart"></canvas></div>
+  <div id="table"></div>
+  <button class="t alt modeb on" id="mCC">Compass → Magnetic</button>
+  <button class="t alt modeb" id="mMC">Magnetic → Compass</button>
+  <div id="tapeT">
+    <button id="minus" aria-label="minus one degree">−</button>
+    <canvas id="tape"></canvas>
+    <button id="plus" aria-label="plus one degree">+</button>
+  </div>
+  <div id="acts">
+    <button class="t alt" id="share">SHARE</button>
+    <a class="t alt" id="settings">SETTINGS</a>
+    <a class="t alt" id="close" href="start.html">CLOSE</a>
+  </div>
+</div>
+<script src="shared.js"></script>
+<script>
+  const { $, norm, fmt3, fmtDev, link } = Mock;
+  const p = Mock.params(), S = Mock.sample(p), F = S.fit;
+  let hasVar = p.ref === 'T', VAR = hasVar ? p.var : 0;
+  let mode = 'cc2mc', value = S.H[1] || 45;
+  const COLS = { 4: 4, 6: 6, 8: 8, 10: 5, 12: 6 };
+
+  $('#chartK').textContent = `${S.boat} · ${S.date} · ${S.H.length} headings`;
+  $('#settings').href = link('settings.html', { from: 'deviation-table.html' });
+  $('#table').style.setProperty('--cols', COLS[S.H.length] || S.H.length);
+  S.H.forEach((h, i) => {
+    const c = document.createElement('div'); c.className = 'cell';
+    c.innerHTML = `<div class="h">${String(h).padStart(3, '0')}</div><div class="d">${fmtDev(S.avg[i])}</div>`;
+    c.onclick = () => { setMode('cc2mc'); value = h; render(); };
+    $('#table').appendChild(c);
+  });
+  const tape = Mock.Tape($('#tape'), () => value, v => { value = v; render(); });
+  const cursorCC = () => mode === 'cc2mc' ? value : F.toCC(value);
+
+  function render() {
+    const cc = cursorCC(), mc = mode === 'cc2mc' ? F.toMC(value) : value;
+    $('#inLbl').textContent  = mode === 'cc2mc' ? 'Compass' : 'Magnetic';
+    $('#outLbl').textContent = mode === 'cc2mc' ? 'Magnetic' : 'Steer compass';
+    $('#inVal').textContent  = fmt3(value);
+    $('#outVal').textContent = fmt3(mode === 'cc2mc' ? mc : cc);
+    $('#devVal').textContent = fmtDev(F.dev(cc));
+    $('#tcVal').textContent  = fmt3(mc + VAR);
+    $('#varTxt').textContent = hasVar ? `Var ${fmtDev(VAR)}` : 'Var 0° (tap to set)';
+    [...$('#table').children].forEach((el, i) => el.classList.toggle('on', mode === 'cc2mc' && S.H[i] === value));
+    Mock.drawCurve($('#chart'), { fit: F, title: true, cursor: cc, sets: [{ pts: S.H.map((h, i) => [h, S.avg[i]]) }] });
+    tape.draw();
+  }
+  function setMode(m) {
+    if (m === mode) return;
+    value = Math.round(m === 'mc2cc' ? F.toMC(value) : F.toCC(value)) % 360; mode = m;
+    $('#mCC').classList.toggle('on', m === 'cc2mc'); $('#mMC').classList.toggle('on', m === 'mc2cc');
+  }
+  $('#mCC').onclick = () => { setMode('cc2mc'); render(); };
+  $('#mMC').onclick = () => { setMode('mc2cc'); render(); };
+  $('#tc').onclick  = () => { hasVar = true; VAR = VAR >= 10 ? -10 : VAR + 1; render(); };
+  Mock.stepper($('#minus'), () => { value = norm(value - 1); render(); });
+  Mock.stepper($('#plus'),  () => { value = norm(value + 1); render(); });
+
+  /* Share without a backend: readable text for a chat message + self-contained URL hash import link. */
+  $('#share').onclick = async () => {
+    const hash = `#t=v1&b=${encodeURIComponent(S.boat)}&d=${S.date}&n=${S.H.length}&ref=${p.ref}&var=${VAR}&dev=${S.avg.join(',')}`;
+    const url = `https://deviator.navigart.net/${hash}`;
+    const text = `${S.boat} deviation table, ${S.date} (${p.ref === 'T' ? 'COG true, var ' + fmtDev(VAR) : 'COG magnetic'})\n` +
+      S.H.map((h, i) => `${String(h).padStart(3, '0')}: ${fmtDev(S.avg[i])}`).join('\n') + `\n${url}`;
+    try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { return; }
+    try { await navigator.clipboard.writeText(text); } catch (e) {}
+    $('#share').textContent = 'COPIED'; setTimeout(() => $('#share').textContent = 'SHARE', 1500);
+  };
+  new ResizeObserver(render).observe(document.body); render();
+</script>
+</body>
+</html>

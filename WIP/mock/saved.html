@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – saved tables</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  /* A scrolling list of tables with CLOSE pinned below it, so many boats never push CLOSE off screen. */
+  .app { grid-template-columns:1fr; grid-template-rows:minmax(0,1fr) auto; }
+  #list { display:grid; grid-template-columns:5fr 1fr; grid-auto-rows:clamp(96px,17vmin,170px); gap:var(--gap);
+          overflow:auto; align-content:start; min-height:0; background:var(--gut); }
+  #list > .t { justify-content:flex-end; }
+  #close { justify-content:center; align-items:center; text-align:center; min-height:clamp(64px,10vmin,110px); }
+  .del { align-items:center; justify-content:center; text-align:center; font-size:clamp(14px,2.4vmin,24px); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script src="shared.js"></script>
+<script>
+  const { $, link } = Mock;
+  const items = [
+    { boat: 'Kittiwake', date: '2026-10-09', n: 8,  ref: 'T', var: 4, meta: 'max 5° E · COG true · var 4°E' },
+    { boat: 'Kittiwake', date: '2025-05-17', n: 12, ref: 'M', var: 0, meta: 'max 4° W · COG magnetic' },
+    { boat: 'Seagull',   date: '2026-06-02', n: 4,  ref: 'T', var: 3, meta: 'max 5° E · COG true · var 3°E' }
+  ];
+  const del = link('confirm.html', { what: 'table', back: link('saved.html'), done: link('saved.html') });
+  $('#app').innerHTML = `<div id="list" style="grid-template-rows:repeat(${items.length}, clamp(96px,17vmin,170px)) minmax(0,1fr)">` + items.map(t => `
+    <a class="t alt" href="${link('deviation-table.html', { boat: t.boat, date: t.date, n: t.n, ref: t.ref, var: t.var, use: null })}"><div class="k">${t.boat} · ${t.date} · ${t.n} headings</div>
+      <div class="v md">${t.boat}</div><div class="sub">${t.meta}</div></a>
+    <a class="t danger del" href="${del}">DELETE</a>`).join('') + `<div class="t" style="grid-column:1 / -1"></div></div>
+    <a class="t acc" id="close" href="start.html"><div class="v md">CLOSE</div></a>`;
+</script>
+</body>
+</html>

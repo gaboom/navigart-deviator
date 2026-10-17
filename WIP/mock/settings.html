@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – settings</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app { grid-template-columns:1fr; grid-template-rows:auto auto auto 1fr auto auto;
+         grid-template-areas:"theme" "lang" "gps" "about" "erase" "close"; }
+  @media (min-aspect-ratio:5/4) {
+    .app { grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr auto auto;
+           grid-template-areas:"theme lang" "gps about" "erase erase" "close close"; }
+  }
+  #theme { grid-area:theme; } #lang { grid-area:lang; } #gps { grid-area:gps; } #about { grid-area:about; justify-content:flex-end; }
+  #erase { grid-area:erase; justify-content:flex-end; min-height:clamp(72px,12vmin,120px); }
+  #close { grid-area:close; justify-content:center; align-items:center; text-align:center; min-height:clamp(64px,10vmin,110px); }
+  .t { justify-content:flex-start; gap:1vmin; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script src="shared.js"></script>
+<script>
+  const { $, link } = Mock;
+  const from = new URLSearchParams(location.search).get('from') || 'start.html';
+  function chips(key, opts, cur) {
+    return `<div class="chips">${opts.map(([v, l, dis]) => `<button class="chip${v === cur ? ' on' : ''}" data-k="${key}" data-v="${v}"${dis ? ' disabled' : ''}>${l}</button>`).join('')}</div>`;
+  }
+  function render() {
+    const theme = localStorage.getItem('deviator.theme') || 'auto', gps = localStorage.getItem('deviator.gps') || '0';
+    $('#app').innerHTML = `
+      <div class="t" id="theme"><div class="k">Appearance</div>${chips('theme', [['light', 'LIGHT'], ['night', 'NIGHT'], ['auto', 'AUTO']], theme)}
+        <div class="sub">Night is dim red for night vision. Auto follows the device.</div></div>
+      <div class="t" id="lang"><div class="k">Language</div>${chips('lang', [['en', 'ENGLISH'], ['more', 'MORE LATER', true]], 'en')}</div>
+      <div class="t" id="gps"><div class="k">Debug · device GPS cross-check</div>${chips('gps', [['0', 'OFF'], ['1', 'ON']], gps)}
+        <div class="sub">A faint reading on the measurement screen. Never a substitute for the chartplotter COG.</div></div>
+      <div class="t alt" id="about"><div class="k">About</div><div class="sub">Deviator works fully offline. Everything stays on this device; there is no account and no server.</div></div>
+      <a class="t danger" id="erase" href="${link('confirm.html', { what: 'all', back: link('settings.html', { from }), done: 'start.html' })}"><div class="k">Danger zone</div><div class="btn">ERASE ALL DATA</div></a>
+      <a class="t acc" id="close" href="${from}"><div class="v md">CLOSE</div></a>`;
+    document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      const k = b.dataset.k; if (k === 'theme') { localStorage.setItem('deviator.theme', b.dataset.v); Mock.applyTheme(); }
+      if (k === 'gps') localStorage.setItem('deviator.gps', b.dataset.v);
+      render();
+    });
+  }
+  render();
+</script>
+</body>
+</html>

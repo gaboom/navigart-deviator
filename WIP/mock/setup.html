@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – setup</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app { grid-template-columns:1fr; grid-template-rows:1fr 1.3fr 1fr 1fr auto;
+         grid-template-areas:"prec" "head" "dir" "refrow" "go"; }
+  @media (min-aspect-ratio:5/4) {
+    .app { grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr auto;
+           grid-template-areas:"prec head" "dir refrow" "go go"; }
+  }
+  #prec { grid-area:prec; } #head { grid-area:head; } #dir { grid-area:dir; }
+  #refrow { grid-area:refrow; display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); min-height:0; }
+  #go { grid-area:go; justify-content:flex-end; min-height:clamp(90px,16vmin,170px); }
+  .t { justify-content:space-between; gap:1vmin; }
+  .chips { flex-wrap:wrap; }
+  .chips .chip { flex:1 1 14%; }
+  .help { font-size:clamp(12px,1.9vmin,19px); color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script src="shared.js"></script>
+<script>
+  const { $, fmt3, fmtDev, link } = Mock;
+  const s = { n: 8, start: 0, dir: 'stbd', ref: 'T', vr: 4 };
+  const HELP = {
+    4: 'Quick. Rough curve from N, E, S, W only; quadrantal error is not visible.',
+    6: 'Fits the whole curve, but a bad reading is hard to spot.',
+    8: 'Recommended. The classic standard; a bad reading stands out.',
+    10: 'More robust. More headings to steer.',
+    12: 'Most robust. Longest exercise.'
+  };
+  const COLS = { 4: 4, 6: 3, 8: 4, 10: 5, 12: 6 };   // even rows of starting-heading chips
+  const headings = () => Array.from({ length: s.n }, (_, i) => i * 360 / s.n);
+  const chips = (arr, on, fmt, key, cols) =>
+    `<div class="chips"${cols ? ` style="display:grid;grid-template-columns:repeat(${cols},1fr)"` : ''}>${arr.map(v => `<button class="chip${v === on ? ' on' : ''}" data-k="${key}" data-v="${v}">${fmt(v)}</button>`).join('')}</div>`;
+
+  function render() {
+    if (!headings().includes(s.start)) s.start = 0;
+    $('#app').innerHTML = `
+      <div class="t" id="prec"><div class="k">Precision · headings per round</div>
+        ${chips([4, 6, 8, 10, 12], s.n, v => v, 'n')}<div class="help">${HELP[s.n]}</div></div>
+      <div class="t" id="head"><div class="k">Starting heading</div>
+        ${chips(headings(), s.start, v => String(v).padStart(3, '0'), 'start', COLS[s.n])}
+        <div class="help">Where the first round begins. 000 unless your boat already lies close to another heading.</div></div>
+      <div class="t" id="dir"><div class="k">Starting direction</div>
+        <div class="chips">
+          <button class="chip${s.dir === 'stbd' ? ' on' : ''}" data-k="dir" data-v="stbd">▶ STARBOARD</button>
+          <button class="chip${s.dir === 'port' ? ' on' : ''}" data-k="dir" data-v="port">◀ PORT</button>
+        </div>
+        <div class="help">The direction you turn between headings. You can add the opposite direction at the end.</div></div>
+      <div id="refrow">
+        <div class="t"><div class="k">Chartplotter COG is</div>
+          <div class="chips">
+            <button class="chip${s.ref === 'T' ? ' on' : ''}" data-k="ref" data-v="T">TRUE</button>
+            <button class="chip${s.ref === 'M' ? ' on' : ''}" data-k="ref" data-v="M">MAGNETIC</button>
+          </div>
+          <div class="help">${s.ref === 'T' ? 'Variation will be applied.' : 'No variation needed.'}</div></div>
+        <div class="t" style="${s.ref === 'T' ? '' : 'visibility:hidden'}"><div class="k">Variation</div>
+          <div class="chips"><button class="chip" id="vm">−</button><div class="chip" style="display:flex;align-items:center;justify-content:center;background:transparent">${fmtDev(s.vr)}</div><button class="chip" id="vp">+</button></div>
+          <div class="help">East is plus.</div></div>
+      </div>
+      <a class="t acc" id="go" href="#"><div class="k">${s.n} headings · ${s.dir === 'stbd' ? 'starboard' : 'port'} · from ${fmt3(s.start)}</div><div class="v lg">BEGIN ▶</div></a>`;
+    document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      const k = b.dataset.k, v = b.dataset.v; s[k] = (k === 'n' || k === 'start') ? +v : v; render();
+    });
+    if ($('#vm')) { $('#vm').onclick = () => { s.vr = Math.max(-30, s.vr - 1); render(); }; $('#vp').onclick = () => { s.vr = Math.min(30, s.vr + 1); render(); }; }
+    $('#go').href = link('measure.html', { n: s.n, start: s.start, dir: s.dir, ref: s.ref, var: s.vr, round: null });
+  }
+  render();
+</script>
+</body>
+</html>

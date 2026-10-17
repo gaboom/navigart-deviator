@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – save</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app { grid-template-columns:1fr 1fr; grid-template-rows:1.4fr 1fr auto auto;
+         grid-template-areas:"boat boat" "date ref" "note note" "back save"; }
+  @media (min-aspect-ratio:5/4) {
+    .app { grid-template-columns:1.4fr 1fr 1fr; grid-template-rows:1fr auto auto;
+           grid-template-areas:"boat date ref" "note note note" "back save save"; }
+  }
+  #boat { grid-area:boat; } #date { grid-area:date; } #ref { grid-area:ref; }
+  #note { grid-area:note; }
+  #back, #save { min-height:clamp(90px,14vmin,150px); justify-content:flex-end; }
+  #back { grid-area:back; } #save { grid-area:save; }
+  .t { justify-content:space-between; gap:1vmin; }
+  input { font:inherit; font-size:clamp(28px,7vmin,80px); font-weight:300; width:100%; border:0; border-bottom:2px solid var(--muted);
+          background:transparent; color:var(--fg); outline:none; padding:0; -webkit-user-select:text; user-select:text; }
+  .boats { display:flex; gap:var(--gap); flex-wrap:wrap; }
+  .boats .chip { flex:0 1 auto; padding:0 1.2em; min-height:clamp(34px,6vmin,64px); font-size:clamp(14px,2.6vmin,26px); }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script src="shared.js"></script>
+<script>
+  const { $, link, params, fmtDev } = Mock;
+  const p = params(), S = Mock.sample(p);
+  const known = ['Kittiwake', 'Seagull'];
+  $('#app').innerHTML = `
+    <div class="t" id="boat"><div class="k">Boat</div>
+      <input id="name" value="${S.boat}" autocomplete="off" autocapitalize="words" spellcheck="false">
+      <div class="boats">${known.map(b => `<button class="chip" data-b="${b}">${b}</button>`).join('')}</div></div>
+    <div class="t alt" id="date"><div class="k">Taken</div><div class="v md">${S.date}</div><div class="sub">Filled in automatically</div></div>
+    <div class="t alt" id="ref"><div class="k">COG reference</div><div class="v md">${p.ref === 'T' ? 'TRUE' : 'MAG'}</div><div class="sub">${p.ref === 'T' ? 'Variation ' + fmtDev(p.var) : 'No variation needed'}</div></div>
+    <div class="t" id="note"><div class="k">${S.H.length} headings · ${p.rounds === 2 ? 'both directions' : 'one direction'}</div>
+      <div class="sub">Saved tables are final. They cannot be edited afterwards, so be sure the instructor has approved this work.</div></div>
+    <a class="t alt" id="back" href="${link('review.html')}"><div class="k">Not yet</div><div class="btn">◀ REVIEW</div></a>
+    <a class="t acc" id="save" href="#"><div class="k">Final</div><div class="v md">SAVE ▶</div></a>`;
+  const sync = () => { $('#save').href = link('deviation-table.html', { boat: $('#name').value.trim() || S.boat, date: S.date }); };
+  $('#name').oninput = sync;
+  document.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { $('#name').value = b.dataset.b; sync(); });
+  sync();
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – finish choices</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app { grid-template-columns:1fr; grid-auto-rows:auto; }
+  .app > .t { justify-content:flex-end; }
+  #info { flex:0; }
+  #cont, #fin, #abort { min-height:0; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script src="shared.js"></script>
+<script>
+  const { $, link, params } = Mock;
+  const p = params();
+  const first = p.dir === 'stbd' ? 'starboard' : 'port';
+  const other = p.dir === 'stbd' ? 'PORT ◀' : 'STARBOARD ▶';
+  const second = p.round === 2;
+  /* rows: info, [continue], finish (largest), abort (smallest) */
+  $('#app').style.gridTemplateRows = second ? 'auto 1fr auto' : 'auto 1fr 2fr auto';
+  $('#app').innerHTML = `
+    <div class="t" id="info"><div class="k">All ${p.n} headings visited · round ${p.round} · ${second ? (p.dir === 'stbd' ? 'port' : 'starboard') : first}</div>
+      <div class="sub">What next?</div></div>
+    ${second ? '' : `<a class="t alt" id="cont" href="${link('measure.html', { round: 2 })}"><div class="k">Add the other direction</div><div class="v md">CONTINUE · TURNING ${other}</div><div class="sub">All headings again, from ${String(p.start).padStart(3, '0')}</div></a>`}
+    <a class="t acc" id="fin" href="${link('review.html', { rounds: p.round })}"><div class="k">${second ? 'Both directions measured' : 'One direction measured'}</div><div class="v lg">FINISH</div><div class="sub">Go to review</div></a>
+    <a class="t alt" id="abort" href="${link('confirm.html', { what: 'measurement', back: link('finish.html'), done: 'start.html' })}"><div class="k">Discard everything</div><div class="btn">ABORT</div></a>`;
+</script>
+</body>
+</html>

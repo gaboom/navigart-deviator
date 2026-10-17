@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – review one heading</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app { grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr 1fr auto;
+         grid-template-areas:"head head" "stbd port" "both both" "remeasure back"; }
+  @media (min-aspect-ratio:5/4) {
+    .app { grid-template-columns:1fr 1fr 1fr; grid-template-rows:auto 1fr auto;
+           grid-template-areas:"head head head" "stbd port both" "remeasure back back"; }
+  }
+  #head { grid-area:head; } #stbd { grid-area:stbd; } #port { grid-area:port; } #both { grid-area:both; }
+  #remeasure { grid-area:remeasure; } #back { grid-area:back; }
+  .t { justify-content:flex-end; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script src="shared.js"></script>
+<script>
+  const { $, link, params, fmt3, fmtDev, fmtUse } = Mock;
+  const q = new URLSearchParams(location.search), p = params(), S = Mock.sample(p);
+  const h = q.has('h') ? +q.get('h') : S.H[0], i = Math.max(0, S.H.indexOf(h));
+  const { hasS, hasP, modeFor } = S, sel = modeFor(h);
+  const useHref = m => link('review.html', { use: fmtUse({ ...p.use, [h]: m }), h: null });
+  const choice = (id, label, val, sub, key, avail) => {
+    const on = sel === key;
+    return avail
+      ? `<a class="t ${on ? 'acc' : 'alt'}" id="${id}" href="${useHref(key)}"><div class="k">${label}</div><div class="v lg">${val}</div><div class="sub">${sub}</div></a>`
+      : `<div class="t alt" id="${id}" style="opacity:.35"><div class="k">${label}</div><div class="v lg">${val}</div><div class="sub">${sub}</div></div>`;
+  };
+  const remRound = sel === 'port' ? (p.dir === 'port' ? 1 : 2) : (p.dir === 'stbd' ? 1 : 2);
+  $('#app').innerHTML = `
+    <div class="t" id="head"><div class="k">Steer ${fmt3(h)} · which reading counts?</div><div class="sub">The result for this heading is used for the whole curve.</div></div>
+    ${choice('stbd', '▶ Starboard only', hasS ? fmtDev(S.stbd[i]) : '—', hasS ? 'Use this reading' : 'Not measured', 'stbd', hasS)}
+    ${choice('port', '◀ Port only', hasP ? fmtDev(S.port[i]) : '—', hasP ? 'Use this reading' : 'Not measured', 'port', hasP)}
+    ${choice('both', 'Both, averaged', hasS && hasP ? fmtDev((S.stbd[i] + S.port[i]) / 2) : '—', hasS && hasP ? 'Default' : 'Requires both rounds', 'both', hasS && hasP)}
+    <a class="t alt" id="remeasure" href="${link('measure.html', { round: remRound, remeasure: h, h: null })}"><div class="k">Measure ${ fmt3(h) } again</div><div class="btn">RE-MEASURE ▶</div></a>
+    <a class="t alt" id="back" href="${link('review.html', { h: null })}"><div class="k">No change</div><div class="btn">◀ BACK TO REVIEW</div></a>`;
+</script>
+</body>
+</html>

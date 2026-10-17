@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – mock index</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app { grid-template-columns:1fr; grid-auto-rows:min-content; align-content:start; overflow:auto; }
+  @media (min-width:700px) { .app { grid-template-columns:1fr 1fr; } }
+  .app .t { min-height:clamp(64px,10vmin,110px); }
+  html, body { overflow:auto; }
+  .note { grid-column:1/-1; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="t note acc">
+    <div class="k">Deviator · throwaway mocks · one page per flow state</div>
+    <div class="sub">Tap through in flow order. Flow choices travel in the URL, so each page shows the state it was reached with.
+      Not production code. Known mock limits: leaving and re-entering a measurement resets its values (the real app resumes exactly),
+      the system back button is not trapped, and the variation / reference pickers are simple toggles.</div>
+  </div>
+  <a class="t alt" href="start.html"><div class="k">1 · start</div><div class="sub">Logo, statement, START, saved tables, settings</div></a>
+  <a class="t alt" href="setup.html"><div class="k">2 · setup</div><div class="sub">Precision, starting heading, direction, COG reference</div></a>
+  <a class="t alt" href="measure.html"><div class="k">3 · measure</div><div class="sub">One heading at a time: steer, tape, COG, lights, PREV / NEXT / ABORT</div></a>
+  <a class="t alt" href="measure-complete.html"><div class="k">4 · measure, all visited</div><div class="sub">All lights on, ABORT has become FINISH</div></a>
+  <a class="t alt" href="finish.html"><div class="k">5 · finish choices</div><div class="sub">Continue other direction / Finish / Abort</div></a>
+  <a class="t alt" href="confirm.html"><div class="k">6 · confirm destructive action</div><div class="sub">Full screen, hold to confirm (abort, delete, reset)</div></a>
+  <a class="t alt" href="review.html?rounds=2"><div class="k">7 · review, two rounds</div><div class="sub">Curve, per-heading rows, approve and save</div></a>
+  <a class="t alt" href="review.html?rounds=1"><div class="k">7b · review, one round</div><div class="sub">Same screen with a single direction measured</div></a>
+  <a class="t alt" href="review-heading.html?h=90"><div class="k">8 · review, one heading</div><div class="sub">Starboard only / port only / both / re-measure</div></a>
+  <a class="t alt" href="save.html"><div class="k">9 · save</div><div class="sub">Boat, date, reference, variation; saved tables are final</div></a>
+  <a class="t alt" href="deviation-table.html"><div class="k">10 · deviation table</div><div class="sub">Curve, table, converter, share, settings, close</div></a>
+  <a class="t alt" href="saved.html"><div class="k">11 · saved tables</div><div class="sub">Tables by boat; open or delete</div></a>
+  <a class="t alt" href="settings.html"><div class="k">12 · settings</div><div class="sub">Theme, language, debug GPS, erase everything</div></a>
+</div>
+<script src="shared.js"></script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+/* Shared look for all flow-state mocks (throwaway, WIP). Tile style: flat, edge to edge, 3px gutters. */
+:root {
+  --gut:#1a1a1a; --tile:#f3f1ec; --tile2:#e2ddd1; --fg:#111; --muted:#5d5a52;
+  --acc:#0050c8; --accfg:#fff; --curve:#111; --pt:#c0392b; --line:#d3ccbc;
+  --stbd:#1a8f3c; --port:#c62828; --danger:#a01010; --dangerfg:#fff;
+  --gap:3px;
+}
+body.night {
+  --gut:#000; --tile:#130302; --tile2:#1e0604; --fg:#ff5a4d; --muted:#9a3329;
+  --acc:#7a140c; --accfg:#ffd0cb; --curve:#ff5a4d; --pt:#ffb0a8; --line:#2e0a07;
+  --stbd:#2a7a37; --port:#b3261e; --danger:#2a0805; --dangerfg:#ff8a7e;
+}
+body.night .t.danger { background:repeating-linear-gradient(135deg,#3a0b07 0 14px,#170302 14px 28px); border:2px solid #ff5a4d; }
+* { box-sizing:border-box; margin:0; }
+html, body {
+  height:100%; background:var(--gut); color:var(--fg); overflow:hidden;
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:manipulation;
+}
+a { color:inherit; text-decoration:none; }
+
+.app {
+  display:grid; gap:var(--gap); height:100dvh;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.t {
+  background:var(--tile); padding:clamp(8px,1.6vmin,20px);
+  display:flex; flex-direction:column; justify-content:space-between;
+  min-width:0; min-height:0; position:relative; overflow:hidden;
+}
+.t.alt    { background:var(--tile2); }
+.t.acc    { background:var(--acc); color:var(--accfg); }
+.t.danger { background:var(--danger); color:var(--dangerfg); }
+.t.acc .k, .t.danger .k, .t.acc .sub, .t.danger .sub { color:inherit; opacity:.8; }
+button.t, a.t { font:inherit; border:0; text-align:left; cursor:pointer; color:inherit; }
+button.t.alt, a.t.alt { color:var(--fg); }
+button.t.acc, a.t.acc { color:var(--accfg); }
+button.t.danger, a.t.danger { color:var(--dangerfg); }
+button.t:active, a.t:active { filter:brightness(.88); }
+.center { justify-content:center; align-items:center; text-align:center; }
+
+.k   { font-size:clamp(11px,1.7vmin,18px); letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+.v   { font-variant-numeric:tabular-nums; font-weight:300; line-height:.95; }
+.xl  { font-size:clamp(48px,13vmin,150px); }
+.lg  { font-size:clamp(34px,9vmin,110px); }
+.md  { font-size:clamp(26px,6vmin,72px); }
+.btn { font-size:clamp(18px,4vmin,44px); font-weight:600; }
+.sub { font-size:clamp(12px,1.9vmin,19px); color:var(--muted); }
+
+.chips { display:flex; gap:var(--gap); }
+.chip  {
+  flex:1; font:inherit; border:0; background:var(--tile2); color:var(--fg); cursor:pointer;
+  font-size:clamp(16px,3.4vmin,34px); font-weight:600; min-height:clamp(40px,7vmin,80px);
+}
+.chip.on { background:var(--fg); color:var(--tile); }
+.chip:disabled { opacity:.35; cursor:default; }
+
+/* Heading tape + stepper buttons: shared by measure and deviation table */
+#tapeT { grid-area:tape; display:grid; grid-template-columns:clamp(64px,12vmin,140px) minmax(0,1fr) clamp(64px,12vmin,140px); grid-template-rows:minmax(0,1fr); gap:var(--gap); height:clamp(68px,11vmin,130px); }
+#tapeT button { font:inherit; border:0; background:var(--tile2); color:var(--fg); font-size:clamp(32px,6vmin,64px); font-weight:300; cursor:pointer; }
+#tapeT button:active { background:var(--fg); color:var(--tile); }
+#tape { background:var(--tile); cursor:ew-resize; touch-action:none; min-width:0; min-height:0; }
+canvas { display:block; width:100%; height:100%; }
+
+/* Hold-to-confirm */
+.hold { touch-action:none; }
+.hold::before {
+  content:""; position:absolute; inset:0; background:rgba(255,255,255,.3);
+  transform-origin:left; transform:scaleX(var(--p,0)); pointer-events:none;
+}
+
+/* Visited lights: shape carries the direction, colour adds to it */
+.lights { flex-direction:row; justify-content:space-around; align-items:center; }
+.lt { font-size:clamp(22px,5vmin,56px); line-height:1; padding:.1em .15em; border:2px solid transparent; }
+.lt.cur { border-color:var(--fg); }
+.lt.s { color:var(--stbd); }
+.lt.p { color:var(--port); }
+
+/* ---------- Measurement screen (measure + measure-complete) ---------- */
+.measure {
+  grid-template-columns:1fr; grid-template-rows:1fr auto 1fr auto auto;
+  grid-template-areas:"steer" "tape" "cogrow" "lights" "nav";
+}
+@media (min-aspect-ratio:5/4) {
+  .measure {
+    grid-template-columns:1fr 1fr; grid-template-rows:1fr auto auto auto;
+    grid-template-areas:"steer cogrow" "tape tape" "lights lights" "nav nav";
+  }
+}
+#steerT  { grid-area:steer; }
+#cogrow  { grid-area:cogrow; display:grid; grid-template-columns:2fr 1fr; gap:var(--gap); min-height:0; }
+#side    { display:flex; flex-direction:column; gap:var(--gap); min-height:0; }
+#side > * { flex:1; }
+#lights  { grid-area:lights; }
+#nav     { grid-area:nav; display:grid; grid-template-columns:1fr 3fr 1.2fr; gap:var(--gap); height:clamp(64px,11vmin,120px); }
+#nav .t  { justify-content:center; align-items:center; text-align:center; font-weight:600; font-size:clamp(16px,3.4vmin,32px); }
+#next    { font-size:clamp(26px,6vmin,64px) !important; }
+.gear    { position:absolute; right:clamp(8px,1.6vmin,20px); top:clamp(6px,1.4vmin,16px); font-size:clamp(18px,3.4vmin,34px); opacity:.6; }
+.gps     { position:absolute; right:clamp(8px,1.6vmin,20px); bottom:clamp(6px,1.4vmin,16px); font-size:clamp(10px,1.5vmin,14px); opacity:.3; }
+
+/* Mock-only navigation helper (not part of the product design) */
+.mockbar {
+  position:fixed; bottom:0; left:50%; transform:translateX(-50%); z-index:99; opacity:.3;
+  font-size:8px; line-height:12px; background:#000; color:#fff; padding:0 10px; letter-spacing:.14em;
+}
+
+/* Hero numerals: sized from the tile's own width and the screen's short side, whichever is smaller */
+.cq   { container-type:inline-size; }
+.hero { font-size:clamp(56px,min(38cqw,28vmin),260px); }

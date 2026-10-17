@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deviator – review</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
+<style>
+  .app { grid-template-columns:1fr 1fr; grid-template-rows:minmax(160px,1.6fr) 2.4fr auto;
+         grid-template-areas:"chart chart" "rows rows" "abort save"; }
+  @media (min-aspect-ratio:5/4) {
+    .app { grid-template-columns:1.2fr 1fr 1fr; grid-template-rows:1fr auto;
+           grid-template-areas:"chart rows rows" "chart abort save"; }
+  }
+  #chartT { grid-area:chart; padding:0; }
+  #chartT .k { position:absolute; left:clamp(8px,1.6vmin,20px); top:clamp(6px,1.2vmin,14px); z-index:1; }
+  #rows { grid-area:rows; display:grid; gap:var(--gap); min-height:0; }
+  .row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; align-items:center; gap:var(--gap); padding:0 clamp(8px,1.6vmin,20px);
+         background:var(--tile); font-variant-numeric:tabular-nums; font-size:clamp(14px,3vmin,30px); min-height:0; }
+  .row.head { background:var(--tile2); font-size:clamp(10px,1.6vmin,16px); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .row b { font-weight:600; } .s { color:var(--stbd); } .p { color:var(--port); } .off { opacity:.35; }
+  a.row { color:var(--fg); }
+  #abort { grid-area:abort; justify-content:center; } #save { grid-area:save; justify-content:center; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="t" id="chartT"><div class="k">Review · ▶ starboard  ◀ port</div><canvas id="chart"></canvas></div>
+  <div id="rows"></div>
+  <a class="t alt" id="abort"><div class="k">Discard</div><div class="btn">ABORT</div></a>
+  <a class="t acc" id="save"><div class="k">Approve</div><div class="v md">SAVE ▶</div></a>
+</div>
+<script src="shared.js"></script>
+<script>
+  const { $, link, params, fmt3, fmtDev } = Mock;
+  const p = params(), S = Mock.sample(p);
+  const { H, stbd, port, avg, hasS, hasP, modeFor, fit: F } = S;
+  const cell = (v, on, cls, dim) => on ? `<span class="${cls}${dim ? ' off' : ''}">${fmtDev(v)}</span>` : `<span class="off">—</span>`;
+
+  $('#rows').style.gridTemplateRows = `auto repeat(${H.length}, 1fr)`;
+  $('#rows').innerHTML = `<div class="row head"><span>Steer</span><span>▶ Stbd</span><span>◀ Port</span><span>Result</span></div>` +
+    H.map((h, i) => {
+      const m = modeFor(h);
+      return `<a class="row" href="${link('review-heading.html', { h })}">
+        <b>${fmt3(h)}</b>${cell(stbd[i], hasS, 's', m === 'port')}${cell(port[i], hasP, 'p', m === 'stbd')}<b>${fmtDev(avg[i])}</b></a>`;
+    }).join('');
+  $('#abort').href = link('confirm.html', { what: 'measurement', back: link('review.html'), done: 'start.html' });
+  $('#save').href = link('save.html');
+
+  function draw() {
+    Mock.drawCurve($('#chart'), { fit: F, title: true, sets: [
+      ...(hasS ? [{ pts: H.filter(h => modeFor(h) !== 'port').map(h => [h, stbd[H.indexOf(h)]]), color: '--stbd', shape: 'tri-r', size: 6 }] : []),
+      ...(hasP ? [{ pts: H.filter(h => modeFor(h) !== 'stbd').map(h => [h, port[H.indexOf(h)]]), color: '--port', shape: 'tri-l', size: 6 }] : [])
+    ] });
+  }
+  new ResizeObserver(draw).observe(document.body); draw();
+</script>
+</body>
+</html>
