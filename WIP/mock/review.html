@@ -7,29 +7,25 @@
 <link rel="stylesheet" href="shared.css">
 <link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
 <style>
-  .app { grid-template-columns:1fr 1fr; grid-template-rows:minmax(160px,1.6fr) 2.4fr auto;
-         grid-template-areas:"chart chart" "rows rows" "abort save"; }
-  @media (min-aspect-ratio:5/4) {
-    .app { grid-template-columns:1.2fr 1fr 1fr; grid-template-rows:1fr auto;
-           grid-template-areas:"chart rows rows" "chart abort save"; }
-  }
-  #chartT { grid-area:chart; padding:0; }
-  #chartT .k { position:absolute; left:clamp(8px,1.6vmin,20px); top:clamp(6px,1.2vmin,14px); z-index:1; }
-  #rows { grid-area:rows; display:grid; gap:var(--gap); min-height:0; }
-  .row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; align-items:center; gap:var(--gap); padding:0 clamp(8px,1.6vmin,20px);
-         background:var(--tile); font-variant-numeric:tabular-nums; font-size:clamp(14px,3vmin,30px); min-height:0; }
-  .row.head { background:var(--tile2); font-size:clamp(10px,1.6vmin,16px); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .app { grid-template-columns:1fr; grid-template-rows:minmax(130px,1.3fr) 2.5fr auto auto; }
+  #chartT { padding:0; }
+  #chartT .k { position:absolute; left:clamp(8px,2.2cqmin,18px); top:clamp(6px,1.5cqmin,12px); z-index:1; }
+  #rows { display:grid; gap:var(--gap); min-height:0; }
+  .row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; align-items:center; gap:var(--gap); padding:0 clamp(8px,2.2cqmin,18px);
+         background:var(--tile); font-variant-numeric:tabular-nums; font-size:clamp(13px,3.8cqmin,22px); min-height:0; }
+  .row.head { background:var(--tile2); font-size:clamp(10px,2.4cqmin,14px); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:600; }
   .row b { font-weight:600; } .s { color:var(--stbd); } .p { color:var(--port); } .off { opacity:.35; }
   a.row { color:var(--fg); }
-  #abort { grid-area:abort; justify-content:center; } #save { grid-area:save; justify-content:center; }
+  #save { justify-content:flex-end; min-height:clamp(60px,10cqh,96px); }
+  #abort { justify-content:center; min-height:clamp(44px,7cqh,68px); }
 </style>
 </head>
 <body>
 <div class="app" id="app">
   <div class="t" id="chartT"><div class="k">Review · ▶ starboard  ◀ port</div><canvas id="chart"></canvas></div>
   <div id="rows"></div>
-  <a class="t alt" id="abort"><div class="k">Discard</div><div class="btn">ABORT</div></a>
   <a class="t acc" id="save"><div class="k">Approve</div><div class="v md">SAVE ▶</div></a>
+  <a class="t alt" id="abort"><div class="k">Discard</div><div class="btn">ABORT</div></a>
 </div>
 <script src="shared.js"></script>
 <script>

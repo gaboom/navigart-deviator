@@ -7,45 +7,48 @@
 <link rel="stylesheet" href="shared.css">
 <link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
 <style>
+  /* Strictly vertical top-to-bottom flow:
+     1. Curve chart -> 2. Table strip -> 3. Mode toggle -> 4. Input course -> 5. Tape ± -> 6. Output course -> 7. Dev/True -> 8. Actions */
   .app {
-    grid-template-columns:1fr 1fr; grid-template-rows:auto auto minmax(120px,1fr) auto auto auto auto;
-    grid-template-areas:"in out" "dev tc" "chart chart" "table table" "mcc mmc" "tape tape" "acts acts";
+    grid-template-columns:1fr;
+    grid-template-rows:minmax(110px,1.2fr) auto auto auto auto auto auto auto;
+    grid-template-areas:"chart" "table" "mode" "in" "tape" "out" "meta" "acts";
   }
-  @media (min-aspect-ratio:5/4) {
-    .app {
-      grid-template-columns:1.3fr 1.3fr 1fr 1fr; grid-template-rows:1fr 1fr auto auto auto;
-      grid-template-areas:"chart chart in out" "chart chart dev tc" "table table mcc mmc" "tape tape tape tape" "acts acts acts acts";
-    }
-  }
-  #in { grid-area:in; } #out { grid-area:out; } #dev { grid-area:dev; } #tc { grid-area:tc; }
   #chartT { grid-area:chart; padding:0; }
-  #chartT .k { position:absolute; left:clamp(8px,1.6vmin,20px); top:clamp(6px,1.2vmin,14px); z-index:1; }
+  #chartT .k { position:absolute; left:clamp(8px,2.2cqmin,18px); top:clamp(6px,1.5cqmin,12px); z-index:1; }
   #table { grid-area:table; display:grid; grid-template-columns:repeat(var(--cols,8),1fr); gap:var(--gap); }
-  .cell { background:var(--tile); padding:clamp(6px,1.2vmin,14px) 0; text-align:center; cursor:pointer; }
-  .cell .h { font-size:clamp(11px,1.6vmin,16px); color:var(--muted); font-variant-numeric:tabular-nums; }
-  .cell .d { font-size:clamp(16px,3vmin,30px); font-weight:600; font-variant-numeric:tabular-nums; }
+  .cell { background:var(--tile); padding:clamp(4px,1cqh,10px) 0; text-align:center; cursor:pointer; }
+  .cell .h { font-size:clamp(10px,2.5cqmin,14px); color:var(--muted); font-variant-numeric:tabular-nums; }
+  .cell .d { font-size:clamp(14px,3.8cqmin,22px); font-weight:600; font-variant-numeric:tabular-nums; }
   .cell.on { background:var(--acc); color:var(--accfg); } .cell.on .h { color:var(--accfg); }
-  #mCC { grid-area:mcc; } #mMC { grid-area:mmc; }
-  .modeb { font-size:clamp(15px,2.6vmin,26px); font-weight:600; justify-content:center; text-align:center; }
+  #modeRow { grid-area:mode; display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
+  .modeb { font-size:clamp(13px,3.5cqmin,20px); font-weight:600; justify-content:center; align-items:center; text-align:center; min-height:clamp(36px,5.5cqh,52px); }
   button.t.modeb.on { background:var(--fg); color:var(--tile); }
-  #acts { grid-area:acts; display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--gap); height:clamp(52px,8vmin,90px); }
-  #acts .t { justify-content:center; align-items:center; text-align:center; font-weight:600; font-size:clamp(14px,2.8vmin,28px); }
+  #in { grid-area:in; flex-direction:row; align-items:baseline; justify-content:space-between; }
+  #out { grid-area:out; flex-direction:row; align-items:baseline; justify-content:space-between; }
+  #meta { grid-area:meta; display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
+  #acts { grid-area:acts; display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--gap); height:clamp(46px,7.5cqh,72px); }
+  #acts .t { justify-content:center; align-items:center; text-align:center; font-weight:600; font-size:clamp(13px,3.6cqmin,20px); }
 </style>
 </head>
 <body>
 <div class="app" id="app">
-  <div class="t" id="in"><div class="k" id="inLbl">Compass</div><div class="v xl" id="inVal"></div></div>
-  <div class="t acc" id="out"><div class="k" id="outLbl">Magnetic</div><div class="v xl" id="outVal"></div></div>
-  <div class="t alt" id="dev"><div class="k">Deviation</div><div class="v md" id="devVal"></div></div>
-  <button class="t alt" id="tc" title="Tap to adjust variation for True course"><div class="k">True</div><div class="v md" id="tcVal"></div><div class="sub" id="varTxt"></div></button>
   <div class="t" id="chartT"><div class="k" id="chartK"></div><canvas id="chart"></canvas></div>
   <div id="table"></div>
-  <button class="t alt modeb on" id="mCC">Compass → Magnetic</button>
-  <button class="t alt modeb" id="mMC">Magnetic → Compass</button>
+  <div id="modeRow">
+    <button class="t alt modeb on" id="mCC">Compass → Magnetic</button>
+    <button class="t alt modeb" id="mMC">Magnetic → Compass</button>
+  </div>
+  <div class="t" id="in"><div class="k" id="inLbl">Compass</div><div class="v xl" id="inVal"></div></div>
   <div id="tapeT">
     <button id="minus" aria-label="minus one degree">−</button>
     <canvas id="tape"></canvas>
     <button id="plus" aria-label="plus one degree">+</button>
+  </div>
+  <div class="t acc" id="out"><div class="k" id="outLbl">Magnetic</div><div class="v xl" id="outVal"></div></div>
+  <div id="meta">
+    <div class="t alt" id="dev"><div class="k">Deviation</div><div class="v md" id="devVal"></div></div>
+    <button class="t alt" id="tc" title="Tap to adjust variation for True course"><div class="k" id="varTxt">True</div><div class="v md" id="tcVal"></div></button>
   </div>
   <div id="acts">
     <button class="t alt" id="share">SHARE</button>
@@ -75,13 +78,13 @@
 
   function render() {
     const cc = cursorCC(), mc = mode === 'cc2mc' ? F.toMC(value) : value;
-    $('#inLbl').textContent  = mode === 'cc2mc' ? 'Compass' : 'Magnetic';
-    $('#outLbl').textContent = mode === 'cc2mc' ? 'Magnetic' : 'Steer compass';
+    $('#inLbl').textContent  = mode === 'cc2mc' ? 'Compass course' : 'Magnetic course';
+    $('#outLbl').textContent = mode === 'cc2mc' ? 'Magnetic course' : 'Steer compass';
     $('#inVal').textContent  = fmt3(value);
     $('#outVal').textContent = fmt3(mode === 'cc2mc' ? mc : cc);
     $('#devVal').textContent = fmtDev(F.dev(cc));
     $('#tcVal').textContent  = fmt3(mc + VAR);
-    $('#varTxt').textContent = hasVar ? `Var ${fmtDev(VAR)}` : 'Var 0° (tap to set)';
+    $('#varTxt').textContent = hasVar ? `True · Var ${fmtDev(VAR)}` : 'True · Var 0° (tap)';
     [...$('#table').children].forEach((el, i) => el.classList.toggle('on', mode === 'cc2mc' && S.H[i] === value));
     Mock.drawCurve($('#chart'), { fit: F, title: true, cursor: cc, sets: [{ pts: S.H.map((h, i) => [h, S.avg[i]]) }] });
     tape.draw();

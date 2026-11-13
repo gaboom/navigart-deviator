@@ -37,13 +37,35 @@
   }
   const here = () => location.pathname.split('/').pop() || 'index.html';
 
-  /* ---------- Theme (light / night / auto) ---------- */
+  /* ---------- Theme (light / night / auto) & Portrait Lock ---------- */
   function applyTheme() {
-    const pref = localStorage.getItem('deviator.theme') || 'auto';
+    const pref = raw.get('theme') || localStorage.getItem('deviator.theme') || 'auto';
     const night = pref === 'night' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.body.classList.toggle('night', night);
   }
   applyTheme();
+
+  if (!document.querySelector('link[rel="manifest"]')) {
+    const m = document.createElement('link');
+    m.rel = 'manifest'; m.href = 'manifest.json';
+    document.head.appendChild(m);
+  }
+  const lockPortrait = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait-primary').catch(() => {}); } catch (e) {} };
+  lockPortrait();
+  window.addEventListener('pointerdown', lockPortrait, { once: true });
+
+  /* Globally block right-click / long-press context menu, text selection, and native element dragging */
+  ['contextmenu', 'dragstart', 'selectstart'].forEach(ev =>
+    window.addEventListener(ev, e => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      e.preventDefault();
+    }, { capture: true })
+  );
+
+  const tg = document.createElement('div');
+  tg.className = 'tilt-guard';
+  tg.innerHTML = '<div class="icon">↻</div><div class="title">Portrait orientation only</div><div class="hint">Please rotate your device upright to continue.</div>';
+  document.body.appendChild(tg);
 
   if (here() !== 'index.html') {
     const a = document.createElement('a');
@@ -105,33 +127,122 @@
     return [g, w, h];
   }
 
-  /* ---------- Heading tape: drag only, no momentum, taps do nothing ---------- */
+  /* ---------- Heading tape: physics-like 1:1 cylindrical barrel drag + smooth integer snap, taps do nothing ---------- */
   function Tape(cv, get, set) {
-    let ppd = 14, drag = null;
+    let ppd = 16, drag = null, vFloat = get(), lastVal = vFloat, snapRaf = null;
     function draw() {
-      const [g, w, h] = prep(cv), mid = w / 2, v = get();
-      const s = Math.max(1, h / 70); ppd = 14 * s;
-      g.strokeStyle = css('--fg'); g.fillStyle = css('--fg');
-      g.font = `600 ${Math.round(14 * s)}px "Segoe UI", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'top';
-      const span = Math.ceil(mid / ppd) + 1;
-      for (let k = -span; k <= span; k++) {
-        const deg = norm(v + k), x = mid + k * ppd;
-        const len = deg % 10 === 0 ? h * 0.42 : deg % 5 === 0 ? h * 0.3 : h * 0.16;
-        g.lineWidth = (deg % 5 === 0 ? 2 : 1) * s;
-        g.beginPath(); g.moveTo(x, h); g.lineTo(x, h - len); g.stroke();
-        if (deg % 10 === 0) g.fillText(String(deg).padStart(3, '0'), x, 13 * s);
+      const [g, w, h] = prep(cv), mid = w / 2, cur = get();
+      if (!drag && cur !== lastVal) {
+        if (snapRaf) { cancelAnimationFrame(snapRaf); snapRaf = null; }
+        vFloat = lastVal = cur;
+      } else if (!drag && !snapRaf) {
+        vFloat = lastVal = cur;
       }
-      g.fillStyle = accent(); g.strokeStyle = accent(); g.lineWidth = 3 * s;
-      g.beginPath(); g.moveTo(mid, h); g.lineTo(mid, 32 * s); g.stroke();
-      g.beginPath(); g.moveTo(mid - 8 * s, 0); g.lineTo(mid + 8 * s, 0); g.lineTo(mid, 12 * s); g.closePath(); g.fill();
+      const s = Math.max(1, h / 78); ppd = 16 * s;
+      const fg = css('--fg'), muted = css('--muted'), line = css('--line'), tile2 = css('--tile2'), acc = accent();
+
+      /* Subtle recessed barrel track & top/bottom grip rails */
+      g.fillStyle = tile2;
+      g.fillRect(0, 0, w, h);
+      g.strokeStyle = line; g.lineWidth = 1.5 * s;
+      g.beginPath();
+      g.moveTo(0, 1 * s); g.lineTo(w, 1 * s);
+      g.moveTo(0, h - 1 * s); g.lineTo(w, h - 1 * s);
+      g.stroke();
+
+      /* Cylindrical barrel projection: ticks compress and fade naturally toward the left/right edges */
+      const maxDeg = Math.min(34, Math.ceil((mid / ppd) * 1.35) + 2);
+      const R = mid * 1.08;
+      const baseDeg = Math.floor(vFloat);
+      const frac = vFloat - baseDeg;
+
+      g.font = `700 ${Math.round(14 * s)}px "Segoe UI", system-ui, sans-serif`;
+      g.textAlign = 'center'; g.textBaseline = 'top';
+
+      for (let k = -maxDeg; k <= maxDeg; k++) {
+        const dOff = k - frac;
+        const theta = (dOff * ppd) / R;
+        if (Math.abs(theta) >= 1.32) continue;
+        const x = mid + R * Math.sin(theta);
+        const cosT = Math.cos(theta);
+        const deg = norm(baseDeg + k);
+        const is10 = deg % 10 === 0, is5 = deg % 5 === 0;
+        const len = (is10 ? h * 0.42 : is5 ? h * 0.29 : h * 0.17) * (0.72 + 0.28 * cosT);
+
+        g.save();
+        g.globalAlpha = Math.max(0.14, Math.pow(cosT, 1.4));
+        g.strokeStyle = is5 ? fg : muted;
+        g.lineWidth = (is10 ? 2.2 : is5 ? 1.6 : 1) * s * (0.65 + 0.35 * cosT);
+        g.beginPath();
+        g.moveTo(x, h);
+        g.lineTo(x, h - len);
+        g.stroke();
+
+        /* Subtle upper grip ticks */
+        g.strokeStyle = muted;
+        g.lineWidth = 1 * s;
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x, (is5 ? 5.5 : 3) * s * cosT);
+        g.stroke();
+
+        if (is10) {
+          g.fillStyle = fg;
+          g.translate(x, 13 * s);
+          g.scale(0.8 + 0.2 * cosT, 1);
+          g.fillText(String(deg).padStart(3, '0'), 0, 0);
+        }
+        g.restore();
+      }
+
+      /* Center lubber pointer at top & lower lubber line (stops below the degree numbers so it never strikes through 000) */
+      g.fillStyle = acc; g.strokeStyle = acc; g.lineWidth = 3 * s;
+      g.beginPath(); g.moveTo(mid, h); g.lineTo(mid, h * 0.50); g.stroke();
+      g.beginPath();
+      g.moveTo(mid - 8 * s, 0);
+      g.lineTo(mid + 8 * s, 0);
+      g.lineTo(mid, 10 * s);
+      g.closePath();
+      g.fill();
     }
-    cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, v: get() }; });
+
+    function animateSnap() {
+      const target = get();
+      let diff = ((target - vFloat + 540) % 360) - 180;
+      if (Math.abs(diff) < 0.02) {
+        vFloat = target;
+        snapRaf = null;
+        draw();
+        return;
+      }
+      vFloat = norm(vFloat + diff * 0.32);
+      draw();
+      snapRaf = requestAnimationFrame(animateSnap);
+    }
+
+    cv.addEventListener('pointerdown', e => {
+      if (snapRaf) { cancelAnimationFrame(snapRaf); snapRaf = null; }
+      cv.setPointerCapture(e.pointerId);
+      vFloat = get();
+      drag = { x: e.clientX, v0: vFloat, moved: false };
+    });
     cv.addEventListener('pointermove', e => {
       if (!drag) return;
-      const nv = norm(drag.v + Math.round((drag.x - e.clientX) / ppd));
-      if (nv !== get()) set(nv);
+      const dx = drag.x - e.clientX;
+      if (Math.abs(dx) > 2) drag.moved = true;
+      if (!drag.moved) return;
+      vFloat = norm(drag.v0 + dx / ppd);
+      const nv = norm(Math.round(vFloat));
+      lastVal = nv;
+      set(nv);
     });
-    ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => drag = null));
+    const endDrag = () => {
+      if (!drag) return;
+      drag = null;
+      if (snapRaf) cancelAnimationFrame(snapRaf);
+      snapRaf = requestAnimationFrame(animateSnap);
+    };
+    ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, endDrag));
     return { draw };
   }
 
@@ -223,32 +334,56 @@
     const steer = k => norm(p.start + sign * k * step);
     const headings = Array.from({ length: n }, (_, i) => steer(i));
     let ref = p.ref, vr = p.var, k = remeasure ? Math.max(0, headings.indexOf(norm(p.remeasure))) : (complete ? n - 1 : 0);
-    const visited = Array.from({ length: n }, () => complete);
-    if (!complete) visited[k] = true;
+    let ctrlOpen = raw.get('gnss') === '1', geoTried = false;
+    const measured = Array.from({ length: n }, () => complete);
+    if (raw.get('gnss') === '1' || raw.get('meas') === '1') measured[k] = true;
     const F = SAMPLE.fit;
     const vals = Array.from({ length: n }, (_, i) =>
       complete ? Math.round(norm(steer(i) + F.dev(steer(i)) + (ref === 'T' ? vr : 0))) : steer(i));
+    const calcDev = idx => {
+      const mc = ref === 'T' ? vals[idx] - vr : vals[idx];
+      const d = Math.round(((mc - steer(idx) + 540) % 360) - 180);
+      return d === 0 ? '0°' : (d > 0 ? '+' : '−') + Math.abs(d) + '°' + (d > 0 ? 'E' : 'W');
+    };
 
     const app = $('#app');
     app.className = 'app measure';
     app.innerHTML = `
-      <div class="t cq" id="steerT">
-        <div class="k">Steer compass course</div>
-        <div class="v hero" id="steer"></div>
-        <div class="sub" id="roundTxt"></div>
-        <a class="gear" id="gear" title="Settings">⚙</a>
+      <div class="t" id="steerT">
+        <div class="k">Steer · compass course</div>
+        <div class="v hero-cc" id="steer"></div>
         <div class="gps" id="gps"></div>
       </div>
-      <div id="tapeT">
-        <button id="minus" aria-label="minus one degree">−</button>
-        <canvas id="tape"></canvas>
-        <button id="plus" aria-label="plus one degree">+</button>
-      </div>
-      <div id="cogrow">
-        <div class="t cq"><div class="k">COG from chartplotter</div><div class="v hero" id="cog"></div></div>
-        <div id="side">
-          <button class="t alt" id="refB"><div class="k">Reference</div><div class="v md" id="ref"></div></button>
-          <button class="t alt" id="varB"><div class="k">Variation</div><div class="v md" id="vr"></div></button>
+      <div class="t" id="cogZone">
+        <div class="k cog-title">Measure · course over ground</div>
+        <div class="cog-mid">
+          <div class="cog-side-lbl">COG</div>
+          <div class="cog-mag-wrap">
+            <div class="cog-mag" id="cogMag">
+              <span class="mag-num" id="cogNum"></span><span class="mag-unit" id="cogUnit" title="Tap T/M when measured to toggle GNSS & Variation"></span>
+            </div>
+            <div class="mag-stem"></div>
+          </div>
+          <div class="gnss-wrap">
+            <div class="dev-amb" id="devAmb">
+              <div class="dev-amb-k">DEVIATION</div>
+              <div class="dev-amb-v" id="devAmbVal"></div>
+            </div>
+            <div class="gnss-box" id="cogCtrl">
+              <div class="gnss-k">DEVIATION TO GNSS</div>
+              <button class="gnss-ref" id="refToggle" title="Toggle True / Magnetic"></button>
+              <div class="gnss-var" id="varChips">
+                <button class="var-mini var-btn" id="vm">−</button>
+                <span class="var-mini-val" id="varVal"></span>
+                <button class="var-mini var-btn" id="vp">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="tapeT">
+          <button id="minus" aria-label="minus one degree">−</button>
+          <canvas id="tape"></canvas>
+          <button id="plus" aria-label="plus one degree">+</button>
         </div>
       </div>
       <div class="t lights" id="lights"></div>
@@ -258,21 +393,30 @@
         <a class="t alt" id="exit"></a>
       </div>`;
 
-    const tape = Tape($('#tape'), () => vals[k], v => { vals[k] = v; render(); });
-    $('#roundTxt').textContent = `${remeasure ? 'RE-MEASURE · ' : ''}ROUND ${p.round} · TURNING ${dir === 'stbd' ? 'STARBOARD ▶' : 'PORT ◀'}`;
+    const tape = Tape($('#tape'), () => vals[k], v => { vals[k] = v; measured[k] = true; render(); });
 
     function render() {
-      $('#steer').textContent = fmt3(steer(k));
-      $('#cog').textContent = fmt3(vals[k]);
-      $('#ref').textContent = ref === 'T' ? 'TRUE' : 'MAG';
-      $('#vr').textContent = fmtDev(vr);
-      $('#varB').style.display = ref === 'T' ? '' : 'none';
-      $('#gear').href = link('settings.html', { ref, var: vr, from: here() });
+      const isMeas = measured[k];
+      if (!isMeas) ctrlOpen = false;
+      $('#steer').innerHTML = `<span class="cc-num">${fmt3(steer(k))}</span><span class="cc-unit">C</span>`;
+      $('#cogNum').textContent = fmt3(vals[k]);
+      $('#cogUnit').textContent = ref;
+      $('#cogMag').classList.toggle('measured', isMeas);
+      $('#devAmb').classList.toggle('show', isMeas && !ctrlOpen);
+      $('#devAmbVal').textContent = calcDev(k);
+      $('#cogCtrl').classList.toggle('open', isMeas && ctrlOpen);
+      $('#refToggle').textContent = ref === 'T' ? 'TRUE' : 'MAGNETIC';
+      $('#varChips').style.opacity = ref === 'T' ? '' : '.38';
+      $('#vm').disabled = ref !== 'T';
+      $('#vp').disabled = ref !== 'T';
+      $('#vm').classList.toggle('on', ref === 'T' && vr < 0);
+      $('#vp').classList.toggle('on', ref === 'T' && vr > 0);
+      $('#varVal').textContent = ref === 'T' ? fmtDev(vr) : '—';
       $('#gps').textContent = localStorage.getItem('deviator.gps') !== '1' ? '' : `GPS ${fmt3(vals[k] + 1)}${ref === 'T' ? 'T' : 'M'} · debug`;
-      $('#lights').innerHTML = visited.map((v, j) =>
+      $('#lights').innerHTML = measured.map((v, j) =>
         `<span class="lt ${dir === 'stbd' ? 's' : 'p'}${j === k ? ' cur' : ''}" data-j="${j}" style="cursor:pointer">${dir === 'stbd' ? (v ? '▶' : '▷') : (v ? '◀' : '◁')}</span>`).join('');
-      $('#lights').querySelectorAll('[data-j]').forEach(el => el.onclick = () => { k = +el.dataset.j; visited[k] = true; render(); });
-      const all = visited.every(Boolean), ex = $('#exit');
+      $('#lights').querySelectorAll('[data-j]').forEach(el => el.onclick = () => { k = +el.dataset.j; ctrlOpen = false; render(); });
+      const all = measured.every(Boolean), ex = $('#exit');
       ex.textContent = all ? 'FINISH' : 'ABORT';
       ex.className = 't ' + (all ? 'acc' : 'alt');
       ex.href = remeasure ? link('review.html', { ref, var: vr, remeasure: null })
@@ -280,15 +424,102 @@
                           : link('confirm.html', { ref, var: vr, what: 'measurement', back: link(here(), { ref, var: vr }), done: 'start.html' });
       tape.draw();
     }
-    $('#prev').onclick = () => { k = (k - 1 + n) % n; visited[k] = true; render(); };
-    $('#next').onclick = () => { k = (k + 1) % n; visited[k] = true; render(); };
-    $('#refB').onclick = () => { ref = ref === 'T' ? 'M' : 'T'; render(); };          // mock: real UI would offer a proper picker
-    $('#varB').onclick = () => { vr = vr >= 10 ? -10 : vr + 1; render(); };            // mock: real UI would offer a proper picker
-    stepper($('#minus'), () => { vals[k] = norm(vals[k] - 1); render(); });
-    stepper($('#plus'),  () => { vals[k] = norm(vals[k] + 1); render(); });
+
+    /* Clicking white #cogMag marks it measured (blue).
+       The variation selector only opens when T/M (#cogUnit) is clicked AND the value is already measured (blue). */
+    $('#cogMag').onclick = e => {
+      if (!measured[k]) {
+        measured[k] = true;
+        ctrlOpen = false;
+        render();
+        return;
+      }
+      if (e.target === $('#cogUnit') || $('#cogUnit').contains(e.target)) {
+        ctrlOpen = !ctrlOpen;
+        render();
+      }
+    };
+    $('#refToggle').onclick = () => {
+      ref = ref === 'T' ? 'M' : 'T';
+      if (ref === 'T' && !geoTried && vr === 0) {
+        geoTried = true;
+        detectVariation(v => { vr = v; render(); });
+      }
+      render();
+    };
+    const pulseVar = (btn, delta) => {
+      if (ref !== 'T') return;
+      vr = Math.max(-30, Math.min(30, vr + delta));
+      render();
+      btn.classList.add('flash');
+      clearTimeout(btn._ft);
+      btn._ft = setTimeout(() => btn.classList.remove('flash'), 120);
+    };
+    $('#vm').onclick = () => pulseVar($('#vm'), -1);
+    $('#vp').onclick = () => pulseVar($('#vp'), 1);
+
+    $('#prev').onclick = () => { k = (k - 1 + n) % n; ctrlOpen = false; render(); };
+    $('#next').onclick = () => { k = (k + 1) % n; ctrlOpen = false; render(); };
+    stepper($('#minus'), () => { vals[k] = norm(vals[k] - 1); measured[k] = true; render(); });
+    stepper($('#plus'),  () => { vals[k] = norm(vals[k] + 1); measured[k] = true; render(); });
     new ResizeObserver(render).observe(document.body);
     render();
   }
 
-  window.Mock = { RAD, norm, fmt3, fmtDev, fmtUse, $, css, accent, params, link, here, SAMPLE, sample, fit, prep, Tape, stepper, drawCurve, hold, measure, applyTheme };
+  /* ---------- WMM2025 offline magnetic variation (declination) ---------- */
+  const WMM_COEFF = [
+    [1,0,-29351.8,0,12.0,0],[1,1,-1410.8,4545.4,9.7,-21.5],
+    [2,0,-2556.6,0,-11.6,0],[2,1,2951.1,-3133.6,-5.2,-27.7],[2,2,1649.3,-815.1,-8.0,-12.1],
+    [3,0,1361.0,0,-1.3,0],[3,1,-2404.1,-56.6,-4.2,4.8],[3,2,1243.8,237.5,0.4,-0.3],[3,3,453.6,-549.5,-15.6,-4.9],
+    [4,0,895.0,0,-1.6,0],[4,1,799.5,278.6,-2.4,-1.1],[4,2,55.7,-133.9,-6.0,4.1],[4,3,-281.4,212.0,5.6,1.6],[4,4,12.1,-375.6,-7.0,-4.4],
+    [5,0,-233.2,0,0.6,0],[5,1,368.9,47.7,1.4,-0.5],[5,2,187.2,208.8,0.0,2.2],[5,3,-138.7,-121.3,0.6,0.9],[5,4,-142.0,32.2,2.2,1.7],[5,5,20.9,99.1,0.9,0.5],
+    [6,0,64.4,0,-0.2,0],[6,1,63.8,-19.1,-0.4,0.3],[6,2,76.9,25.0,0.9,-1.6],[6,3,-115.7,52.7,1.2,-0.4],[6,4,-40.9,-57.8,-0.9,0.9],[6,5,14.9,10.9,0.3,0.7],[6,6,-60.7,72.7,0.9,0.9]
+  ];
+  function wmmDeclination(latDeg, lonDeg, date) {
+    const dt = ((date instanceof Date ? date.getTime() : Date.now()) / 86400000 / 365.2425 + 1970) - 2025.0;
+    const lat = Math.max(-89.9, Math.min(89.9, +latDeg || 0)) * RAD, lon = (+lonDeg || 0) * RAD;
+    const a = 6378.137, b = 6356.7523142, r0 = 6371.2;
+    const sinLat = Math.sin(lat), cosLat = Math.cos(lat);
+    const gcLat = Math.atan2(b * b * sinLat, a * a * cosLat);
+    const r = Math.sqrt((a * cosLat) ** 2 + (b * sinLat) ** 2);
+    const theta = Math.PI / 2 - gcLat, cosT = Math.cos(theta), sinT = Math.max(1e-10, Math.sin(theta));
+    const P = Array.from({ length: 7 }, () => new Float64Array(7));
+    const dP = Array.from({ length: 7 }, () => new Float64Array(7));
+    const S = Array.from({ length: 7 }, () => new Float64Array(7));
+    P[0][0] = 1; S[0][0] = 1;
+    for (let n = 1; n <= 6; n++) {
+      P[n][n] = sinT * P[n - 1][n - 1];
+      dP[n][n] = sinT * dP[n - 1][n - 1] + cosT * P[n - 1][n - 1];
+      S[n][0] = S[n - 1][0] * (2 * n - 1) / n;
+      for (let m = 0; m < n; m++) {
+        const k = n === 1 ? 0 : ((n - 1) ** 2 - m * m) / ((2 * n - 1) * (2 * n - 3));
+        P[n][m] = cosT * P[n - 1][m] - k * (n >= 2 ? P[n - 2][m] : 0);
+        dP[n][m] = cosT * dP[n - 1][m] - sinT * P[n - 1][m] - k * (n >= 2 ? dP[n - 2][m] : 0);
+      }
+      for (let m = 1; m <= n; m++) S[n][m] = S[n][m - 1] * Math.sqrt((n - m + 1) * (m === 1 ? 2 : 1) / (n + m));
+    }
+    let Xc = 0, Y = 0, Zc = 0;
+    for (const [n, m, g0, h0, dg, dh] of WMM_COEFF) {
+      const g = (g0 + dg * dt) * S[n][m], h = (h0 + dh * dt) * S[n][m];
+      const ratio = (r0 / r) ** (n + 2), cosM = Math.cos(m * lon), sinM = Math.sin(m * lon), gm = g * cosM + h * sinM;
+      Xc += ratio * gm * dP[n][m];
+      Y  += ratio * m * (g * sinM - h * cosM) * P[n][m] / sinT;
+      Zc -= (n + 1) * ratio * gm * P[n][m];
+    }
+    const psi = gcLat - lat, X = Xc * Math.cos(psi) - Zc * Math.sin(psi);
+    return Math.atan2(Y, X) / RAD;
+  }
+  function detectVariation(cb, timeoutMs) {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { cb(0, null); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude } = pos.coords, ex = wmmDeclination(latitude, longitude);
+        cb(Math.max(-30, Math.min(30, Math.round(ex))), { lat: latitude, lon: longitude, exact: ex });
+      },
+      () => cb(0, null),
+      { enableHighAccuracy: false, maximumAge: 86400000, timeout: timeoutMs || 4000 }
+    );
+  }
+
+  window.Mock = { RAD, norm, fmt3, fmtDev, fmtUse, $, css, accent, params, link, here, SAMPLE, sample, fit, prep, Tape, stepper, drawCurve, hold, measure, applyTheme, wmmDeclination, detectVariation };
 })();

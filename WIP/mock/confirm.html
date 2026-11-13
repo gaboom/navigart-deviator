@@ -8,10 +8,8 @@
 <link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
 <style>
   /* Safe choice is huge and at the bottom; the destructive one sits above it, is never where the trigger was, and needs a 2 s hold. */
-  .app { grid-template-columns:1fr; grid-template-rows:auto 2fr 3fr; grid-template-areas:"msg" "danger" "safe"; }
-  @media (min-aspect-ratio:5/4) { .app { grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; grid-template-areas:"msg danger" "safe safe"; } }
-  #msg { grid-area:msg; } #danger { grid-area:danger; justify-content:flex-end; } #safe { grid-area:safe; justify-content:flex-end; }
-  #danger, #safe { user-select:none; }
+  .app { grid-template-columns:1fr; grid-template-rows:auto 2fr 3fr; }
+  #danger, #safe { justify-content:flex-end; user-select:none; }
 </style>
 </head>
 <body>

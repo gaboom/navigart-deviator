@@ -8,19 +8,15 @@
 <link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
 <style>
   .app { grid-template-columns:1fr; grid-auto-rows:min-content; align-content:start; overflow:auto; }
-  @media (min-width:700px) { .app { grid-template-columns:1fr 1fr; } }
-  .app .t { min-height:clamp(64px,10vmin,110px); }
-  html, body { overflow:auto; }
-  .note { grid-column:1/-1; }
+  .app .t { min-height:clamp(56px,8cqh,88px); }
 </style>
 </head>
 <body>
 <div class="app" id="app">
-  <div class="t note acc">
+  <div class="t acc">
     <div class="k">Deviator · throwaway mocks · one page per flow state</div>
-    <div class="sub">Tap through in flow order. Flow choices travel in the URL, so each page shows the state it was reached with.
-      Not production code. Known mock limits: leaving and re-entering a measurement resets its values (the real app resumes exactly),
-      the system back button is not trapped, and the variation / reference pickers are simple toggles.</div>
+    <div class="sub">Strictly vertical portrait layout (full screen on mobile, constrained portrait frame on desktop / embeds).
+      Tap through in flow order. Flow choices travel in the URL, so each page shows the state it was reached with.</div>
   </div>
   <a class="t alt" href="start.html"><div class="k">1 · start</div><div class="sub">Logo, statement, START, saved tables, settings</div></a>
   <a class="t alt" href="setup.html"><div class="k">2 · setup</div><div class="sub">Precision, starting heading, direction, COG reference</div></a>

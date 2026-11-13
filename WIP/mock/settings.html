@@ -7,16 +7,11 @@
 <link rel="stylesheet" href="shared.css">
 <link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
 <style>
-  .app { grid-template-columns:1fr; grid-template-rows:auto auto auto 1fr auto auto;
-         grid-template-areas:"theme" "lang" "gps" "about" "erase" "close"; }
-  @media (min-aspect-ratio:5/4) {
-    .app { grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr auto auto;
-           grid-template-areas:"theme lang" "gps about" "erase erase" "close close"; }
-  }
-  #theme { grid-area:theme; } #lang { grid-area:lang; } #gps { grid-area:gps; } #about { grid-area:about; justify-content:flex-end; }
-  #erase { grid-area:erase; justify-content:flex-end; min-height:clamp(72px,12vmin,120px); }
-  #close { grid-area:close; justify-content:center; align-items:center; text-align:center; min-height:clamp(64px,10vmin,110px); }
-  .t { justify-content:flex-start; gap:1vmin; }
+  .app { grid-template-columns:1fr; grid-template-rows:auto auto auto 1fr auto auto; }
+  #about { justify-content:flex-end; }
+  #erase { justify-content:flex-end; min-height:clamp(60px,10cqh,96px); }
+  #close { justify-content:center; align-items:center; text-align:center; min-height:clamp(56px,9cqh,88px); }
+  .t { justify-content:flex-start; gap:1cqh; }
 </style>
 </head>
 <body>

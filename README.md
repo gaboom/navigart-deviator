@@ -10,9 +10,9 @@
 ## What It Does
 
 1. **Measure Deviation ("Swinging the Compass")**
-   - Guides helmsman and navigator through `4`, `6`, `8` (default), `10`, or `12` evenly spaced compass headings.
+   - Guides helmsman and navigator through `6x` ($60^\circ$), `8x` ($45^\circ$, default), or `12x` ($30^\circ$) evenly spaced compass headings.
    - Supports a single 360° round or two opposite-direction rounds (**Starboard `▶`** and **Port `◀`**) on the same heading grid to cancel compass and helm turning lag.
-   - Accepts **Chartplotter COG** in either **True** (with local Magnetic Variation) or **Magnetic** reference.
+   - Accepts **Chartplotter GNSS Course Over Ground ($COG$)** in either **Magnetic** (default) or **True** reference (auto-filling local Magnetic Variation via an offline WMM2025 lookup from device geolocation, with `0°` fallback).
    - Uses a cockpit-friendly **drag-only heading tape** and **`±1°` steppers**—no popup keyboards.
 
 2. **Review & Resolve Readings**
@@ -66,5 +66,6 @@ flowchart TD
 | [SPEC.md](SPEC.md) | **Why?** Domain background, pedagogical rationale, UX philosophy, and scope. |
 | [README.md](README.md) | **What?** Functional overview, screen flow, and repository layout. |
 | [AGENTS.md](AGENTS.md) | **How?** Engineering architecture, mathematical formulas, UX invariants, and testing guide. |
+| [`src/`](src/wmm.js) | Shared application modules (including [`src/wmm.js`](src/wmm.js) offline WMM2025 magnetic declination engine). |
 | [`WIP/mock/`](WIP/mock/index.html) | Interactive 12-state HTML/CSS/JS prototype validating layout, themes, math, and controls across viewports. |
-| `docs/` *(planned)* | Production zero-dependency PWA served via GitHub Pages at `deviator.navigart.net`. |
+| [`docs/`](docs/README.md) | Production zero-dependency PWA dist target served via GitHub Pages at `deviator.navigart.net`. |

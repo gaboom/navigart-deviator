@@ -24,12 +24,15 @@
   - Device GPS may **only** appear as a faint, low-opacity debug cross-check (`GPS 046°T · debug`) when explicitly enabled in Settings.
 
 ### 2.2 Precision & 5-Coefficient Harmonic Model
-- **Why `4, 6, 8, 10, 12` Headings (Default `8`)**:
+- **Why `6x, 8x, 12x` Headings (Default `8x`)**:
   Magnetic deviation on a vessel follows the classic 5-term Fourier harmonic expansion:
   $$\delta(c) = A + B\sin c + C\cos c + D\sin 2c + E\cos 2c$$
-  - **$N = 8$ (Every $45^\circ$)**: The maritime standard. Over-determines the 5 coefficients with 3 degrees of freedom so a single bad reading visibly stands out from the smooth curve.
-  - **$N = 4$ (Cardinal points $000^\circ, 090^\circ, 180^\circ, 270^\circ$)**: Quick check, but $\sin 2c = 0$ at all four points, making quadrantal error $D$ mathematically unobservable (and placing $E\cos 2c$ at the Nyquist limit).
-  - **$N = 6, 10, 12$**: Allow instructors to demonstrate under-redundancy ($N = 6$) vs. higher angular resolution ($N = 10, 12$).
+  - **`8x` (Every $45^\circ$, default)**: The maritime standard. Over-determines the 5 coefficients with 3 degrees of freedom so a single bad reading visibly stands out from the smooth curve.
+  - **`6x` (Every $60^\circ$)**: Faster swing with 1 degree of freedom above the 5-parameter fit.
+  - **`12x` (Every $30^\circ$)**: High angular resolution (7 degrees of freedom) for thorough calibration and training exercises.
+- **Offline WMM2025 Magnetic Variation Auto-Default**:
+  - Most yachts configure their chartplotter to display `MAGNETIC` course over ground (so variation is not needed during the swing, and `MAGNETIC` is the default selection). While `MAGNETIC` is selected, `VARIATION` remains strictly disabled—tapping variation controls never implicitly switches the reference to `TRUE`, because the navigator must consciously know which reference their chartplotter is sailing on.
+  - When the crew explicitly switches Chartplotter reference to `TRUE`, the app defaults Variation to `0°` and requests a one-shot device position (`navigator.geolocation.getCurrentPosition`). If granted, it evaluates the embedded degree-6 **World Magnetic Model (WMM2025)** spherical harmonics (`src/wmm.js`, `< 2.5 KB`, offline) to pre-fill the local magnetic variation rounded to the nearest integer degree (`+E` / `−W`), falling back cleanly to `0°` if offline/denied.
 
 ### 2.3 Two Opposite-Direction Rounds on the Same Grid
 - **Why Starboard (`▶`) + Port (`◀`) on Identical Headings**:
@@ -39,16 +42,29 @@
 - **Why Optional at Round Completion**:
   Sea room, traffic, or training time may only permit a single 360° swing. Choosing the starting direction upfront and offering *"Continue turning `<opposite direction>`"* after completing Round 1 keeps the workflow flexible.
 
-### 2.4 Cockpit-First Marine Ergonomics
-- **Edge-to-Edge Tile Grid**: High-contrast, flat tiles separated by `3px` gutters maximize touch targets on a wet, pitching deck and scale cleanly across phone portrait, phone landscape, and tablet viewports without scrolling during active workflows.
-- **No System Keyboard During Measurement**: Summoning a mobile virtual keyboard covers half the viewport and hijacks the Android system Back gesture. All degree inputs use a **drag-only heading tape** paired with **`±1°` stepper buttons** (tap for $1^\circ$, hold to repeat; plain taps on the tape do nothing to prevent accidental jumps).
-- **KISS Default Value (`COG = Steered Heading`)**: Every heading defaults its initial $COG$ to the steered compass heading (`045°` $\rightarrow$ `045°`). Since yacht deviation is typically only a few degrees, the student only needs a few degrees of adjustment.
+### 2.4 Cockpit-First Marine Ergonomics & Strictly Vertical Layout
+- **Strictly Vertical (Portrait) Tile Stack**: People scan top-to-bottom. Every screen is arranged as a single top-to-bottom vertical flow of high-contrast flat tiles separated by `3px` gutters, without side-by-side multi-column layout shifts.
+- **Portrait Lock & Desktop/Embed Constraint**:
+  - On mobile/small screens, the app locks portrait orientation (`"orientation": "portrait-primary"` in `manifest.json` + `screen.orientation.lock('portrait-primary')`), falling back to a full-screen tilt prompt (`Portrait orientation only`) if a mobile browser tab ignores the lock in landscape.
+  - On large desktop monitors, `.app` is constrained to a centered portrait column (`width: min(100vw, 480px, 62dvh)`, `height: 100dvh`) using CSS size containment (`container-type: size` + `cqmin`/`cqw`/`cqh` units). This preserves true portrait proportions on any monitor and makes the app trivial to embed inside an `<iframe>` or Web Component.
+- **No System Keyboard During Measurement**: Summoning a mobile virtual keyboard covers half the viewport and hijacks the Android system Back gesture. All degree inputs use a **physics-like 3D cylindrical horizontal barrel tape** paired with pronounced **`±1°` stepper buttons** (tap for $1^\circ$, hold to repeat; plain taps on the tape do nothing to prevent accidental jumps).
+- **Distinct Visual Hierarchy Between Helmsman Target (`000°C`) and Navigator Instrument (`000°M` / `000°T`)**:
+  - The helmsman's target (**`STEER · COMPASS COURSE`**, displayed as **`000°C`** with a smaller `C`) is the largest hero readout at the top of `measure.html`.
+  - The navigator's interactive **`MEASURE · COURSE OVER GROUND`** section is the second-largest element: the selected COG (**`000°M`** or **`000°T`**) emerges directly out of the center lubber line of the horizontal barrel tape as a magnifier window, flanked symmetrically by a **`COG`** label on the left and a contextual readout/control slot on the right.
+- **KISS Default Value (`COG = Steered Heading`) & Explicit Measured State**:
+  - Every heading defaults its initial $COG$ to the steered compass heading (`045°` $\rightarrow$ `045°`) in an unmeasured **white** state (`#cogMag`).
+  - Changing the $COG$ via `−`, `+`, or dragging the tape—even if returned to the default value—or clicking directly on the default white `000°M`/`000°T` box marks that heading as **measured**, turning the magnifier box **blue** (`var(--acc)`) and filling that heading's directional indicator light (`▶` / `◀`).
+  - Once a heading is measured (blue), the right-hand slot displays the ambient **`DEVIATION`** readout (`0°`, `+4°E`, `−3°W`). Clicking **`T`/`M`** on an already-measured (blue) box toggles the inline **`DEVIATION TO GNSS`** selector (`MAGNETIC`/`TRUE` + `−`/`+` variation steppers) in that exact right-hand slot without shifting any layout element.
 - **Redundant Shape + Color Indicators**: Starboard turns use green right-pointing triangles (`▶` visited / `▷` unvisited); Port turns use red left-pointing triangles (`◀` visited / `◁` unvisited). Direction and completion remain unambiguous in monochrome, red-light night vision, or for color-blind crew.
 - **Night Vision Mode**: True dark-red palette (`#000` background, dim red foreground) preserves rhodopsin dark adaptation during night passages.
 
 ### 2.5 Unbreakable State & Destructive Action Safety
 - **Always Resume**: If the browser tab is backgrounded, reloaded, or closed mid-swing, the app resumes at the exact screen, heading, and values in `localStorage`.
-- **System Back Button Trapped**: Accidental edge-swipes on a heeling boat must never navigate backward or erase measurements. The browser History API traps Back navigation as a no-op; all transitions use explicit on-screen tiles.
+- **System Back Button Trapped & Native Browser Chrome / Misc Interactions Disabled**:
+  - Accidental edge-swipes on a heeling boat must never navigate backward or erase measurements. The browser History API traps Back navigation as a no-op; all transitions use explicit on-screen tiles.
+  - All miscellaneous browser/OS interactions are globally disabled so the app behaves like a dedicated hardware marine instrument: right-click / long-press context menu (`contextmenu`), text selection (`user-select: none` / `selectstart`, except inside explicit text `<input>` fields on `save.html`), native element/link dragging (`dragstart` / `-webkit-user-drag: none`), iOS touch callouts (`-webkit-touch-callout: none`), tap-highlight flashes (`-webkit-tap-highlight-color: transparent`), and pull-to-refresh / rubber-band overscrolling (`overscroll-behavior: none`).
+  - > [!IMPORTANT]
+  - > **Open Architecture Review — Back Button Use & Flow Consistency Completeness**: Because the system Back gesture is trapped (and unavailable in standalone PWA / desktop viewports), every screen in the state machine must be audited for exit/return completeness so a user is never trapped on a dead-end state. **Concrete example**: On `setup.html`, there is currently no on-screen `Back` / `Home` button, leaving a user who tapped `START` from the home screen unable to return to `start.html` without starting and then aborting a measurement. Back navigation and flow graph completeness will be reviewed holistically across all pages once the per-page pass is complete.
 - **Full-Screen 2-Second Hold-to-Confirm**: No small modal popups. Destructive actions (`ABORT`, `DELETE`, `ERASE ALL DATA`) open a dedicated confirmation screen where:
   1. The **safe choice** is the largest tile at the bottom of the screen.
   2. The **destructive choice** requires a continuous **2-second press-and-hold** with a visual progress fill bar, positioned away from the triggering button so a double-tap can never trigger it.

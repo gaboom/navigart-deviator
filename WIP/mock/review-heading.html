@@ -7,15 +7,10 @@
 <link rel="stylesheet" href="shared.css">
 <link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
 <style>
-  .app { grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr 1fr auto;
-         grid-template-areas:"head head" "stbd port" "both both" "remeasure back"; }
-  @media (min-aspect-ratio:5/4) {
-    .app { grid-template-columns:1fr 1fr 1fr; grid-template-rows:auto 1fr auto;
-           grid-template-areas:"head head head" "stbd port both" "remeasure back back"; }
-  }
-  #head { grid-area:head; } #stbd { grid-area:stbd; } #port { grid-area:port; } #both { grid-area:both; }
-  #remeasure { grid-area:remeasure; } #back { grid-area:back; }
+  .app { grid-template-columns:1fr; grid-template-rows:auto 1fr 1fr 1fr auto auto; }
   .t { justify-content:flex-end; }
+  #head { justify-content:space-between; }
+  #remeasure, #back { min-height:clamp(54px,9cqh,84px); }
 </style>
 </head>
 <body>
