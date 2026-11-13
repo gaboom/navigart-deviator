@@ -84,12 +84,17 @@ canvas { display:block; width:100%; height:100%; contain:size; }
   transform-origin:left; transform:scaleX(var(--p,0)); pointer-events:none;
 }
 
-/* Visited lights: shape carries the direction, colour adds to it */
-.lights { flex-direction:row; justify-content:space-around; align-items:center; padding:clamp(6px,1.4cqh,12px) clamp(4px,1.5cqw,10px); }
-.lt { font-size:clamp(18px,5.5cqw,34px); line-height:1; padding:.1em .12em; border:2px solid transparent; }
-.lt.cur { border-color:var(--fg); }
-.lt.s { color:var(--stbd); }
-.lt.p { color:var(--port); }
+/* Visited lights: shape carries the direction, colour & fill show measured state, size marks current step */
+.lights { flex-direction:row; justify-content:space-around; align-items:center; padding:clamp(6px,1.2cqh,12px) clamp(6px,2cqw,14px); }
+.lt {
+  flex:1 1 0; height:clamp(32px,8.2cqw,44px);
+  display:flex; align-items:center; justify-content:center;
+  color:var(--muted); cursor:pointer;
+}
+.lt svg { width:clamp(19px,5.2cqw,26px); height:clamp(19px,5.2cqw,26px); display:block; }
+.lt.cur svg { width:clamp(29px,8cqw,40px); height:clamp(29px,8cqw,40px); }
+.lt.meas.s { color:var(--stbd); }
+.lt.meas.p { color:var(--port); }
 
 /* ---------- Measurement screen (measure + measure-complete): strictly vertical stack ---------- */
 .measure {
@@ -151,9 +156,9 @@ canvas { display:block; width:100%; height:100%; contain:size; }
   font-weight:700; color:var(--muted); line-height:1; white-space:nowrap;
 }
 .gnss-box {
-  background:var(--tile2); padding:clamp(3px,.5cqh,5px) clamp(4px,.9cqw,6px);
+  background:var(--tile2); padding:clamp(4px,.7cqh,6px) clamp(5px,1.1cqw,7px);
   height:100%; width:clamp(84px,23.5cqw,110px);
-  display:grid; grid-template-rows:auto 1fr 1fr;
+  display:grid; grid-template-rows:1fr auto 1fr;
   gap:clamp(2px,.4cqh,4px);
   border:1px solid var(--line);
   visibility:hidden; opacity:0; pointer-events:none;
@@ -161,20 +166,35 @@ canvas { display:block; width:100%; height:100%; contain:size; }
 .gnss-box.open {
   visibility:visible; opacity:1; pointer-events:auto;
 }
-.gnss-k {
-  font-size:clamp(6.5px,1.65cqw,8.5px); font-weight:700; letter-spacing:.04em;
-  color:var(--muted); text-align:center; line-height:1; white-space:nowrap;
+.gnss-toggle {
+  display:grid; grid-template-columns:1fr 1fr; gap:2px;
+  width:100%; height:100%; min-height:0;
 }
-.gnss-ref {
-  font:inherit; border:0; background:var(--fg); color:var(--tile);
+.gnss-seg {
+  font:inherit; border:0; background:var(--tile); color:var(--fg);
   width:100%; height:100%; min-height:0;
   display:flex; align-items:center; justify-content:center;
-  font-size:clamp(8px,2.05cqw,10.5px); font-weight:700; letter-spacing:.05em;
-  cursor:pointer; line-height:1; padding:0; overflow:hidden; white-space:nowrap;
+  font-size:clamp(10px,2.5cqw,13px); font-weight:700; letter-spacing:.03em;
+  cursor:pointer; line-height:1; padding:0;
+}
+.gnss-seg.on {
+  background:var(--fg); color:var(--tile);
+}
+.gnss-var-lbl {
+  font-size:clamp(7.5px,1.9cqw,9.5px); font-weight:700; letter-spacing:.12em;
+  color:var(--muted); text-align:center; line-height:1; padding-top:1px;
+  visibility:hidden; opacity:0;
+}
+.gnss-var-lbl.show {
+  visibility:visible; opacity:1;
 }
 .gnss-var {
-  display:grid; grid-template-columns:clamp(18px,5cqw,24px) minmax(0,1fr) clamp(18px,5cqw,24px);
-  gap:2px; align-items:center; height:100%; min-height:0;
+  display:grid; grid-template-columns:clamp(20px,5.4cqw,26px) minmax(0,1fr) clamp(20px,5.4cqw,26px);
+  gap:3px; align-items:center; height:100%; min-height:0;
+  visibility:hidden; opacity:0; pointer-events:none;
+}
+.gnss-var.show {
+  visibility:visible; opacity:1; pointer-events:auto;
 }
 .var-mini {
   font:inherit; border:0; background:var(--tile); color:var(--fg);

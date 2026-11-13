@@ -58,12 +58,13 @@ By discrete Fourier orthogonality over evenly spaced points:
      - **Symmetrical 3-Column `.cog-mid` Row (`COG` | `000°M`/`000°T` | Right Slot)**:
        - Center magnifier (`#cogMag`) has fixed outer width and fixed unit column (`grid-template-columns: auto .65em`) so switching `M` $\leftrightarrow$ `T` never shifts `000°` or any surrounding element.
        - Starts white (unmeasured). Changing COG via `−`/`+`/tape drag or clicking the white `#cogMag` box marks `measured[k] = true` (turns `#cogMag` blue permanently for that heading, even if returned to the default value).
-       - Right slot is empty when unmeasured; shows ambient dark-grey **`DEVIATION`** (`0°`, `+4°E`, `−3°W`) when measured; and toggles the fixed-size **`DEVIATION TO GNSS`** box (`MAGNETIC`/`TRUE` + `−`/`+` variation steppers) when `T`/`M` (`#cogUnit`) is clicked on an already-measured (blue) value.
-3. **Visited Lights & Directional Shapes**:
-   - Starboard round (`dir === 'stbd'`): green (`--stbd`) right-pointing triangles (`▶` visited, `▷` unvisited).
-   - Port round (`dir === 'port'`): red (`--port`) left-pointing triangles (`◀` visited, `◁` unvisited).
-   - Active heading is framed with a `2px` border (`.lt.cur`); tapping any indicator light jumps directly to that heading.
-   - The right-hand navigation tile reads `ABORT` until all $n$ headings in the active round are visited (`visited.every(Boolean)`), at which point it transforms into `FINISH` (accent tile).
+       - Right slot is empty when unmeasured; shows ambient dark-grey **`DEVIATION`** (`0°`, `+4°E`, `−3°W`) when measured; and opens the fixed-size grey variation box (`°M`/`°T` segmented toggle in the top row, **`VARIATION`** label + `−`/`+` variation steppers below shown only when `°T` is selected) when `T`/`M` (`#cogUnit`) is clicked on an already-measured (blue) value. Clicking or touching anywhere outside the grey variation box immediately closes it and restores the `DEVIATION` number.
+3. **Progress Lights & Directional Shapes (`#lights`) & Navigation (`#nav`)**:
+   - Starboard round (`dir === 'stbd'`): right-pointing SVG triangles; Port round (`dir === 'port'`): left-pointing SVG triangles.
+   - Unmeasured headings (`!measured[j]`): **empty outline triangle** in `--muted` grey (never green/red before measurement). Measured headings (`measured[j]`): **full solid triangle** in green (`--stbd`) or red (`--port`).
+   - All triangles are scaled larger (`clamp(19px, 5.2cqw, 26px)`), with **no square frame** on the active heading; instead, the active heading's triangle (`.lt.cur`) is displayed **even bigger** (`clamp(29px, 8cqw, 40px)`). Tapping any indicator light jumps directly to that heading.
+   - `#next` (`NEXT ▶`) renders **grey** (`.t.alt`, still clickable) when the current heading has not been measured yet, and turns **accent** (`.t.acc`) once measured.
+   - The right-hand navigation tile (`#exit`) reads `ABORT` until all $n$ headings in the active round are measured (`measured.every(Boolean)`), at which point it transforms into `FINISH` (accent tile).
 4. **Destructive Action Confirmation (`confirm.html`)**:
    - Never use `window.confirm()` or small popups.
    - Always route destructive actions (`ABORT`, `DELETE`, `ERASE ALL DATA`) to the full-screen confirmation state.

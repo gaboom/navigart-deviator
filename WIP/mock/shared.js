@@ -370,8 +370,11 @@
               <div class="dev-amb-v" id="devAmbVal"></div>
             </div>
             <div class="gnss-box" id="cogCtrl">
-              <div class="gnss-k">DEVIATION TO GNSS</div>
-              <button class="gnss-ref" id="refToggle" title="Toggle True / Magnetic"></button>
+              <div class="gnss-toggle">
+                <button class="gnss-seg" id="refM">°M</button>
+                <button class="gnss-seg" id="refT">°T</button>
+              </div>
+              <div class="gnss-var-lbl" id="varLbl">VARIATION</div>
               <div class="gnss-var" id="varChips">
                 <button class="var-mini var-btn" id="vm">−</button>
                 <span class="var-mini-val" id="varVal"></span>
@@ -405,17 +408,23 @@
       $('#devAmb').classList.toggle('show', isMeas && !ctrlOpen);
       $('#devAmbVal').textContent = calcDev(k);
       $('#cogCtrl').classList.toggle('open', isMeas && ctrlOpen);
-      $('#refToggle').textContent = ref === 'T' ? 'TRUE' : 'MAGNETIC';
-      $('#varChips').style.opacity = ref === 'T' ? '' : '.38';
+      $('#refM').classList.toggle('on', ref === 'M');
+      $('#refT').classList.toggle('on', ref === 'T');
+      $('#varLbl').classList.toggle('show', ref === 'T');
+      $('#varChips').classList.toggle('show', ref === 'T');
       $('#vm').disabled = ref !== 'T';
       $('#vp').disabled = ref !== 'T';
       $('#vm').classList.toggle('on', ref === 'T' && vr < 0);
       $('#vp').classList.toggle('on', ref === 'T' && vr > 0);
-      $('#varVal').textContent = ref === 'T' ? fmtDev(vr) : '—';
+      $('#varVal').textContent = ref === 'T' ? fmtDev(vr) : '';
       $('#gps').textContent = localStorage.getItem('deviator.gps') !== '1' ? '' : `GPS ${fmt3(vals[k] + 1)}${ref === 'T' ? 'T' : 'M'} · debug`;
+      const triPts = dir === 'stbd' ? '4,3 24,14 4,25' : '24,3 4,14 24,25';
+      const triSvg = filled =>
+        `<svg viewBox="0 0 28 28" aria-hidden="true"><polygon points="${triPts}" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
       $('#lights').innerHTML = measured.map((v, j) =>
-        `<span class="lt ${dir === 'stbd' ? 's' : 'p'}${j === k ? ' cur' : ''}" data-j="${j}" style="cursor:pointer">${dir === 'stbd' ? (v ? '▶' : '▷') : (v ? '◀' : '◁')}</span>`).join('');
+        `<span class="lt ${dir === 'stbd' ? 's' : 'p'}${v ? ' meas' : ''}${j === k ? ' cur' : ''}" data-j="${j}">${triSvg(v)}</span>`).join('');
       $('#lights').querySelectorAll('[data-j]').forEach(el => el.onclick = () => { k = +el.dataset.j; ctrlOpen = false; render(); });
+      $('#next').className = 't ' + (isMeas ? 'acc' : 'alt');
       const all = measured.every(Boolean), ex = $('#exit');
       ex.textContent = all ? 'FINISH' : 'ABORT';
       ex.className = 't ' + (all ? 'acc' : 'alt');
@@ -424,6 +433,18 @@
                           : link('confirm.html', { ref, var: vr, what: 'measurement', back: link(here(), { ref, var: vr }), done: 'start.html' });
       tape.draw();
     }
+
+    /* Clicking or touching anywhere outside #cogCtrl closes it and returns to the DEVIATION number. */
+    let closedByOutside = false;
+    document.addEventListener('pointerdown', e => {
+      closedByOutside = false;
+      if (!ctrlOpen) return;
+      const box = $('#cogCtrl');
+      if (box && box.contains(e.target)) return;
+      ctrlOpen = false;
+      closedByOutside = true;
+      render();
+    }, true);
 
     /* Clicking white #cogMag marks it measured (blue).
        The variation selector only opens when T/M (#cogUnit) is clicked AND the value is already measured (blue). */
@@ -434,14 +455,19 @@
         render();
         return;
       }
+      if (closedByOutside) {
+        closedByOutside = false;
+        return;
+      }
       if (e.target === $('#cogUnit') || $('#cogUnit').contains(e.target)) {
-        ctrlOpen = !ctrlOpen;
+        ctrlOpen = true;
         render();
       }
     };
-    $('#refToggle').onclick = () => {
-      ref = ref === 'T' ? 'M' : 'T';
-      if (ref === 'T' && !geoTried && vr === 0) {
+    $('#refM').onclick = () => { ref = 'M'; render(); };
+    $('#refT').onclick = () => {
+      ref = 'T';
+      if (!geoTried && vr === 0) {
         geoTried = true;
         detectVariation(v => { vr = v; render(); });
       }
