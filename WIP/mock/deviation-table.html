@@ -60,7 +60,7 @@
 <script>
   const { $, norm, fmt3, fmtDev, link } = Mock;
   const p = Mock.params(), S = Mock.sample(p), F = S.fit;
-  let hasVar = p.ref === 'T', VAR = hasVar ? p.var : 0;
+  let VAR = 0;
   let mode = 'cc2mc', value = S.H[1] || 45;
   const COLS = { 4: 4, 6: 6, 8: 8, 10: 5, 12: 6 };
 
@@ -82,9 +82,10 @@
     $('#outLbl').textContent = mode === 'cc2mc' ? 'Magnetic course' : 'Steer compass';
     $('#inVal').textContent  = fmt3(value);
     $('#outVal').textContent = fmt3(mode === 'cc2mc' ? mc : cc);
-    $('#devVal').textContent = fmtDev(F.dev(cc));
+    const dev = F.dev(cc), ce = VAR + dev;
+    $('#devVal').textContent = fmtDev(dev);
     $('#tcVal').textContent  = fmt3(mc + VAR);
-    $('#varTxt').textContent = hasVar ? `True · Var ${fmtDev(VAR)}` : 'True · Var 0° (tap)';
+    $('#varTxt').textContent = `True · Var ${fmtDev(VAR)} · Error ${fmtDev(ce)}`;
     [...$('#table').children].forEach((el, i) => el.classList.toggle('on', mode === 'cc2mc' && S.H[i] === value));
     Mock.drawCurve($('#chart'), { fit: F, title: true, cursor: cc, sets: [{ pts: S.H.map((h, i) => [h, S.avg[i]]) }] });
     tape.draw();
@@ -96,15 +97,15 @@
   }
   $('#mCC').onclick = () => { setMode('cc2mc'); render(); };
   $('#mMC').onclick = () => { setMode('mc2cc'); render(); };
-  $('#tc').onclick  = () => { hasVar = true; VAR = VAR >= 10 ? -10 : VAR + 1; render(); };
+  $('#tc').onclick  = () => { VAR = VAR >= 10 ? -10 : VAR + 1; render(); };
   Mock.stepper($('#minus'), () => { value = norm(value - 1); render(); });
   Mock.stepper($('#plus'),  () => { value = norm(value + 1); render(); });
 
   /* Share without a backend: readable text for a chat message + self-contained URL hash import link. */
   $('#share').onclick = async () => {
-    const hash = `#t=v1&b=${encodeURIComponent(S.boat)}&d=${S.date}&n=${S.H.length}&ref=${p.ref}&var=${VAR}&dev=${S.avg.join(',')}`;
+    const hash = `#t=v1&b=${encodeURIComponent(S.boat)}&d=${S.date}&n=${S.H.length}&dev=${S.avg.join(',')}`;
     const url = `https://deviator.navigart.net/${hash}`;
-    const text = `${S.boat} deviation table, ${S.date} (${p.ref === 'T' ? 'COG true, var ' + fmtDev(VAR) : 'COG magnetic'})\n` +
+    const text = `${S.boat} deviation table, ${S.date}\n` +
       S.H.map((h, i) => `${String(h).padStart(3, '0')}: ${fmtDev(S.avg[i])}`).join('\n') + `\n${url}`;
     try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { return; }
     try { await navigator.clipboard.writeText(text); } catch (e) {}

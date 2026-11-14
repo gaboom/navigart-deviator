@@ -20,12 +20,12 @@
    - Lets students inspect each heading and choose **Starboard only**, **Port only**, **Both (averaged)**, or **Re-measure** before instructor sign-off.
 
 3. **Save Immutable Boat Tables**
-   - Stores approved deviation tables locally on the device by **Boat Name** and **Date**.
+   - Stores approved compass deviation tables locally on the device by **Boat Name** and **Date** (deviation values only—measurement-time variation is stripped out, never stored).
    - Once saved, tables are final and cannot be altered.
 
 4. **Convert Any Course (`Compass ↔ Magnetic ↔ True`)**
    - Interactive converter with live curve cursor, per-heading quick-jump table strip, and heading tape.
-   - Converts **Compass → Magnetic** (direct harmonic evaluation) and **Magnetic → Steer Compass** (fixed-point iterative inverse) while displaying **True** course for the active magnetic variation.
+   - Converts **Compass → Magnetic** (direct harmonic evaluation) and **Magnetic → Steer Compass** (fixed-point iterative inverse), with user-supplied current **Variation** to compute **Compass Error (`Variation + Deviation`)** and **True** course.
 
 5. **Share Without a Backend**
    - Exports a human-readable deviation table for chat apps (WhatsApp, Signal, SMS) together with a self-contained `#t=v1&...` URL hash link that other crew members can open to import the table.

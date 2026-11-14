@@ -22,13 +22,13 @@
 <script>
   const { $, link } = Mock;
   const items = [
-    { boat: 'Kittiwake', date: '2026-10-09', n: 8,  ref: 'T', var: 4, meta: 'max 5° E · COG true · var 4°E' },
-    { boat: 'Kittiwake', date: '2025-05-17', n: 12, ref: 'M', var: 0, meta: 'max 4° W · COG magnetic' },
-    { boat: 'Seagull',   date: '2026-06-02', n: 4,  ref: 'T', var: 3, meta: 'max 5° E · COG true · var 3°E' }
+    { boat: 'Kittiwake', date: '2026-10-09', n: 8,  meta: 'max 5°E' },
+    { boat: 'Kittiwake', date: '2025-05-17', n: 12, meta: 'max 4°W' },
+    { boat: 'Seagull',   date: '2026-06-02', n: 6,  meta: 'max 5°E' }
   ];
   const del = link('confirm.html', { what: 'table', back: link('saved.html'), done: link('saved.html') });
   $('#app').innerHTML = `<div id="list" style="grid-template-rows:repeat(${items.length}, clamp(84px,14cqh,128px)) minmax(0,1fr)">` + items.map(t => `
-    <a class="t alt" href="${link('deviation-table.html', { boat: t.boat, date: t.date, n: t.n, ref: t.ref, var: t.var, use: null })}"><div class="k">${t.boat} · ${t.date} · ${t.n} headings</div>
+    <a class="t alt" href="${link('deviation-table.html', { boat: t.boat, date: t.date, n: t.n, ref: null, var: null, use: null })}"><div class="k">${t.boat} · ${t.date} · ${t.n} headings</div>
       <div class="v md">${t.boat}</div><div class="sub">${t.meta}</div></a>
     <a class="t danger del" href="${del}">DELETE</a>`).join('') + `<div class="t" style="grid-column:1 / -1"></div></div>
     <a class="t acc" id="close" href="start.html"><div class="v md">CLOSE</div></a>`;

@@ -29,12 +29,15 @@ By discrete Fourier orthogonality over evenly spaced points:
 - $D = \begin{cases} 0 & \text{if } n = 4 \\ \frac{2}{n}\sum_{i=0}^{n-1} d_i \sin(2H_i) & \text{if } n \ge 6 \end{cases}$
 - $E = \begin{cases} \frac{1}{n}\sum_{i=0}^{n-1} d_i \cos(2H_i) & \text{if } n = 4 \text{ (Nyquist frequency: } \sum \cos^2 2H_i = n\text{)} \\ \frac{2}{n}\sum_{i=0}^{n-1} d_i \cos(2H_i) & \text{if } n \ge 6 \end{cases}$
 
-### 1.3 Course Conversion ($CC \leftrightarrow MC$)
+### 1.3 Course Conversion ($CC \leftrightarrow MC \leftrightarrow TC$)
 - **Forward ($CC \to MC$)**: `toMC(cc) = norm(cc + dev(cc))`
 - **Inverse ($MC \to CC$)**: Fixed-point iteration converges to machine precision within 10 steps for all realistic deviation magnitudes ($|\delta| < 30^\circ$):
   ```js
   const toCC = mc => { let c = mc; for (let i = 0; i < 10; i++) c = mc - dev(c); return norm(c); };
   ```
+- **True Course & Compass Error (Conversion Time)**:
+  Using user-supplied current variation $V_{\text{current}}$ (never stored on the saved table):
+  $$\text{Compass Error}(CC) = V_{\text{current}} + \delta(CC), \qquad TC = norm(MC + V_{\text{current}}) = norm(CC + \text{Compass Error}(CC))$$
 
 ### 1.4 Offline WMM2025 Magnetic Variation (`src/wmm.js`)
 - Degree-6 World Magnetic Model (WMM2025, epoch `2025.0`, Schmidt semi-normalized Gauss coefficients $g_n^m, h_n^m$ and secular variation $\dot{g}_n^m, \dot{h}_n^m$) evaluates magnetic declination at `(lat, lon, date)` in `< 2.5 KB` with `< 0.1°` accuracy across navigable latitudes.
@@ -54,20 +57,22 @@ By discrete Fourier orthogonality over evenly spaced points:
    - **Setup Discrete Starting-Heading Slider (`.dslider`)**: Single-line rail with a physical sliding thumb (`.dthumb`) that tracks horizontal pointer drag 1:1 and snaps to the $n \in \{6, 8, 12\}$ evenly spaced headings. Vertical internal split uses Golden Ratio powers ($\varphi^{-2} = 38.2\%$ from top to number center, $\varphi^{-2} = 38.2\%$ from number center to ruler line at $76.4\%$, and $\varphi^{-3} = 23.6\%$ below the ruler line) so unselected numbers have strictly equal space above and below. When switching from higher precision to lower precision, `snapHeading(cur, H)` rounds the current starting heading to the nearest available heading in `H` (breaking equal-distance ties downward in the first half $< 180^\circ$ and upward in the second half $\ge 180^\circ$).
    - **Setup & Inline Variation Steppers (`#vm`, `#vp`)**: When variation is positive (`+E`), the `+` button renders in the selected (`.on`) state and flashes unselected (`.flash` / `:active`) while tapped; when negative (`−W`), the `−` button renders `.on` and flashes unselected while tapped; when `0°`, both buttons render unselected.
    - **Measurement COG Instrument (`#cogZone`) & Cylindrical Barrel Tape (`Tape`)**:
-     - **Physics-like 1:1 cylindrical barrel drag, zero momentum, plain tap is a no-op**: Pointer capture tracks continuous floating-point degrees (`vFloat`, `16px` scaled per degree) with $\sin\theta$ cylindrical tick projection, edge alpha falloff, upper grip ticks, a lower lubber line that stops below the `10°` numbers (`h * 0.50`), and smooth spring-snap to the integer degree on pointer release. Paired with pronounced `−` and `+` buttons (`1 tap = ±1°`, press-and-hold repeats every `90ms` after a `450ms` delay).
+     - **Physics-like 1:1 cylindrical barrel drag, zero momentum, plain tap is a no-op**: Pointer capture tracks continuous floating-point degrees (`vFloat`, `ppd` scaled to fit cleanly) with $\sin\theta$ cylindrical tick projection, edge alpha falloff, upper grip ticks, a lower lubber line that stops below the `10°` numbers (`h * 0.50`), and smooth spring-snap to the integer degree on pointer release. On `measure.html`, `Tape` draws the deviation band between `CC` (`steer(k)`) and `MC` (`vFloat` in `°M`, `vFloat - vr` in `°T`) in translucent accent color, plus a muted variation band between `MC` and `TC` (`vFloat`) in `°T`, and positions zero-layout-impact boundary labels below `#tapeT` (`CC` and `MC` in `°M` when deviation $\ne 0$; `CC`, `MC`, and `TC` in `°T`, stacking coincident marks vertically on separate lines under one centered tick). Paired with pronounced `−` and `+` buttons (`1 tap = ±1°`, press-and-hold repeats every `90ms` after a `450ms` delay).
      - **Symmetrical 3-Column `.cog-mid` Row (`COG` | `000°M`/`000°T` | Right Slot)**:
-       - Center magnifier (`#cogMag`) has fixed outer width and fixed unit column (`grid-template-columns: auto .65em`) so switching `M` $\leftrightarrow$ `T` never shifts `000°` or any surrounding element.
+       - Uses the exact same 3-column tracks (`--side-w`, `minmax(0, 1fr)`, `--side-w`) and vertical instrument height (`--inst-h`) as `#tapeT` below it so `#cogMag` aligns pixel-for-pixel in width and height with the tape bar, and `#cogCtrl` right-aligns with the `+` button.
+       - Center magnifier (`#cogMag`) has a `2px solid var(--fg)` hairline frame matching `#cogCtrl`/`#tapeT` and fixed unit column (`grid-template-columns: auto .65em`) so switching `M` $\leftrightarrow$ `T` never shifts `000°` or any surrounding element.
        - Starts white (unmeasured). Changing COG via `−`/`+`/tape drag or clicking the white `#cogMag` box marks `measured[k] = true` (turns `#cogMag` blue permanently for that heading, even if returned to the default value).
-       - Right slot is empty when unmeasured; shows ambient dark-grey **`DEVIATION`** (`0°`, `+4°E`, `−3°W`) when measured; and opens the fixed-size grey variation box (`°M`/`°T` segmented toggle in the top row, **`VARIATION`** label + `−`/`+` variation steppers below shown only when `°T` is selected) when `T`/`M` (`#cogUnit`) is clicked on an already-measured (blue) value. Clicking or touching anywhere outside the grey variation box immediately closes it and restores the `DEVIATION` number.
+       - Right slot shows ambient dark-grey **`VARIATION`** (`+4°`, `−3°`, `0°`) when unmeasured in `°T` (empty in `°M`); switches to ambient dark-grey **`DEVIATION`** (`0°`, `+4°`, `−3°`) once measured; and opens the hairline inline variation editor (`°M`/`°T` segmented toggle pinned at the top edge in both modes, **`VARIATION`** label + `−`/`+` variation bar below shown only when `°T` is selected) either when clicking the visible **`VARIATION`** readout (unmeasured `°T`) or when clicking `T`/`M` (`#cogUnit`) on an already-measured (blue) value. Clicking or touching anywhere outside `#cogCtrl` immediately closes it and restores the ambient slot (`VARIATION` if unmeasured `°T`, hidden if unmeasured `°M`, or `DEVIATION` if measured).
 3. **Progress Lights & Directional Shapes (`#lights`) & Navigation (`#nav`)**:
-   - Starboard round (`dir === 'stbd'`): right-pointing SVG triangles; Port round (`dir === 'port'`): left-pointing SVG triangles.
+   - Starboard round (`dir === 'stbd'`): right-pointing SVG triangles filling **left-to-right** (`j = 0 .. n-1`), paired with `[ ◀ PREV | TURN <step>° STARBOARD ▶ | ABORT/FINISH ]`.
+   - Port round (`dir === 'port'`): left-pointing SVG triangles filling **right-to-left** (`#lights.port { flex-direction: row-reverse; }`, `j = 0` at far right advancing left), paired with swapped navigation `[ ABORT/FINISH | TURN <step>° PORT ◀ | PREV ▶ ]` (`#nav.port`).
    - Unmeasured headings (`!measured[j]`): **empty outline triangle** in `--muted` grey (never green/red before measurement). Measured headings (`measured[j]`): **full solid triangle** in green (`--stbd`) or red (`--port`).
    - All triangles are scaled larger (`clamp(19px, 5.2cqw, 26px)`), with **no square frame** on the active heading; instead, the active heading's triangle (`.lt.cur`) is displayed **even bigger** (`clamp(29px, 8cqw, 40px)`). Tapping any indicator light jumps directly to that heading.
-   - `#next` (`NEXT ▶`) renders **grey** (`.t.alt`, still clickable) when the current heading has not been measured yet, and turns **accent** (`.t.acc`) once measured.
-   - The right-hand navigation tile (`#exit`) reads `ABORT` until all $n$ headings in the active round are measured (`measured.every(Boolean)`), at which point it transforms into `FINISH` (accent tile).
+   - `#next` (`TURN <step>° STARBOARD ▶` / `TURN <step>° PORT ◀`) renders **grey** (`.t.alt`, still clickable) when the current heading has not been measured yet, turns **accent** (`.t.acc`) once the current heading is measured while headings remain (`abortMode`), and returns to **grey** (`.t.alt`) once all headings are measured (or in `remeasure` mode) so only `FINISH` renders **accent**.
+   - The abort/finish navigation tile (`#exit`, right in Starboard, left in Port) reads `ABORT` until all $n$ headings in the active round are measured (`measured.every(Boolean)`), at which point it transforms into `FINISH` (accent tile, single tap). In `ABORT` mode, a quick tap is a no-op; holding for `2000ms` sweeps a reddish overlay (`rgba(225,75,40,.46)` in Light / `rgba(245,58,74,.38)` in Night, distinct from `--port`) across `#exit` and navigates directly to `start.html` on completion (eliminating the `confirm.html` hop for measurement abort).
 4. **Destructive Action Confirmation (`confirm.html`)**:
    - Never use `window.confirm()` or small popups.
-   - Always route destructive actions (`ABORT`, `DELETE`, `ERASE ALL DATA`) to the full-screen confirmation state.
+   - Route non-inline destructive actions (`DELETE`, `ERASE ALL DATA`) to the full-screen confirmation state (measurement `ABORT` uses direct 2-second long-press on `#exit`).
    - The **safe option** is the largest accent tile at the bottom; the **danger tile** sits above it (never overlapping the triggering button's screen coordinates) and requires a continuous `2000ms` pointer hold (`requestAnimationFrame` progress bar `--p: 0..1`) that resets immediately on release/cancel.
 5. **System Back Button, Persistence & Disabled Browser/OS Misc Interactions**:
    - Production app traps `popstate` via `history.pushState` so Android/iOS edge-back gestures do nothing.
@@ -84,21 +89,19 @@ By discrete Fourier orthogonality over evenly spaced points:
 - `deviator.theme`: `'light' | 'night' | 'auto'` (default `'auto'`)
 - `deviator.gps`: `'0' | '1'` (default `'0'`, debug device GPS cross-check)
 - `deviator.active`: JSON of in-progress measurement session (or `null` when idle)
-- `deviator.tables`: JSON array of saved, immutable boat tables:
+- `deviator.tables`: JSON array of saved, immutable boat tables (pure compass deviation only—no measurement `ref` or `var` is ever persisted):
   ```json
   {
     "id": "2026-10-09-kittiwake-1",
     "boat": "Kittiwake",
     "date": "2026-10-09",
     "n": 8,
-    "ref": "T",
-    "var": 4,
     "dev": [-1.5, 2.0, 4.5, 3.0, 0.5, -2.5, -4.0, -3.5]
   }
   ```
 
 ### Share URL Hash Format
-- `https://deviator.navigart.net/#t=v1&b=<boat>&d=<YYYY-MM-DD>&n=<4|6|8|10|12>&ref=<T|M>&var=<deg>&dev=<d0,d1,...>`
+- `https://deviator.navigart.net/#t=v1&b=<boat>&d=<YYYY-MM-DD>&n=<6|8|12>&dev=<d0,d1,...>`
 
 ---
 

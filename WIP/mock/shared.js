@@ -128,7 +128,7 @@
   }
 
   /* ---------- Heading tape: physics-like 1:1 cylindrical barrel drag + smooth integer snap, taps do nothing ---------- */
-  function Tape(cv, get, set) {
+  function Tape(cv, get, set, getAnchor, onBand) {
     let ppd = 16, drag = null, vFloat = get(), lastVal = vFloat, snapRaf = null;
     function draw() {
       const [g, w, h] = prep(cv), mid = w / 2, cur = get();
@@ -138,7 +138,7 @@
       } else if (!drag && !snapRaf) {
         vFloat = lastVal = cur;
       }
-      const s = Math.max(1, h / 78); ppd = 16 * s;
+      const s = Math.max(1, h / 78); ppd = Math.min(16 * s, Math.max(11, w / 14.5));
       const fg = css('--fg'), muted = css('--muted'), line = css('--line'), tile2 = css('--tile2'), acc = accent();
 
       /* Subtle recessed barrel track & top/bottom grip rails */
@@ -153,6 +153,67 @@
       /* Cylindrical barrel projection: ticks compress and fade naturally toward the left/right edges */
       const maxDeg = Math.min(34, Math.ceil((mid / ppd) * 1.35) + 2);
       const R = mid * 1.08;
+
+      /* Deviation band [CC, MC] (accent) and optional Variation band [MC, TC] (muted) */
+      const wrapDiff = (a, b) => (((a - b) % 360) + 540) % 360 - 180;
+      const degPos = val => {
+        const d = wrapDiff(val, vFloat);
+        const th = (d * ppd) / R;
+        const rawX = mid + R * Math.sin(th);
+        const onTape = Math.abs(th) < 1.32 && rawX > 0 && rawX < w;
+        return { d, x: onTape ? rawX : (th < 0 ? 0 : w), onTape };
+      };
+      let band = { visible: false, devVisible: false, varVisible: false, w, mid };
+      if (typeof getAnchor === 'function') {
+        const refObj = getAnchor();
+        const ccVal = (refObj && typeof refObj === 'object') ? refObj.cc : refObj;
+        const varDeg = (refObj && typeof refObj === 'object' && refObj.varDeg) ? refObj.varDeg : 0;
+        const isTrue = !!(refObj && typeof refObj === 'object' && refObj.isTrue);
+        const mcVal = vFloat - varDeg, tcVal = isTrue ? vFloat : null;
+        const hasDev = Math.abs(wrapDiff(mcVal, ccVal)) > 0.01;
+        const hasVar = isTrue && Math.abs(wrapDiff(tcVal, mcVal)) > 0.01;
+        const pCc = degPos(ccVal), pMc = degPos(mcVal), pTc = isTrue ? degPos(tcVal) : null;
+        band = { visible: hasDev || hasVar, devVisible: hasDev, varVisible: hasVar, w, mid, pCc, pMc, pTc };
+
+        if (hasVar) {
+          const x0 = Math.min(pMc.x, pTc.x), bw = Math.abs(pTc.x - pMc.x);
+          g.save();
+          g.globalAlpha = 0.10;
+          g.fillStyle = muted;
+          g.fillRect(x0, 0, bw, h);
+          g.globalAlpha = 0.45;
+          g.strokeStyle = muted; g.lineWidth = 1.5 * s;
+          g.beginPath();
+          g.moveTo(x0, 1 * s); g.lineTo(x0 + bw, 1 * s);
+          g.moveTo(x0, h - 1 * s); g.lineTo(x0 + bw, h - 1 * s);
+          if (pMc.onTape && Math.abs(pMc.d) > 0.01) {
+            g.moveTo(pMc.x, h); g.lineTo(pMc.x, h * 0.50);
+          }
+          g.stroke();
+          g.restore();
+        }
+        if (hasDev) {
+          const x0 = Math.min(pCc.x, pMc.x), bw = Math.abs(pMc.x - pCc.x);
+          g.save();
+          g.globalAlpha = 0.22;
+          g.fillStyle = acc;
+          g.fillRect(x0, 0, bw, h);
+          g.restore();
+          g.strokeStyle = acc; g.lineWidth = 2 * s;
+          g.beginPath();
+          g.moveTo(x0, 1 * s); g.lineTo(x0 + bw, 1 * s);
+          g.moveTo(x0, h - 1 * s); g.lineTo(x0 + bw, h - 1 * s);
+          [pCc, pMc].forEach(pt => {
+            if (pt.onTape && Math.abs(pt.d) > 0.01) {
+              g.moveTo(pt.x, 0); g.lineTo(pt.x, 10 * s);
+              g.moveTo(pt.x, h); g.lineTo(pt.x, h * 0.50);
+            }
+          });
+          g.stroke();
+        }
+      }
+      if (typeof onBand === 'function') onBand(band);
+
       const baseDeg = Math.floor(vFloat);
       const frac = vFloat - baseDeg;
 
@@ -311,17 +372,28 @@
   }
 
   /* ---------- Hold-to-confirm: the fill grows while pressed, letting go cancels ---------- */
-  function hold(el, ms, done) {
+  function hold(el, ms, done, shouldHold) {
     let raf = null, t0 = 0, fired = false;
+    const active = () => !shouldHold || shouldHold();
     const set = p => el.style.setProperty('--p', p);
     const tick = () => {
       const p = Math.min(1, (performance.now() - t0) / ms); set(p);
-      if (p >= 1) { fired = true; raf = null; done(); } else raf = requestAnimationFrame(tick);
+      if (p >= 1) { fired = true; raf = null; el.classList.remove('holding'); done(); } else raf = requestAnimationFrame(tick);
     };
     el.classList.add('hold');
-    el.addEventListener('pointerdown', e => { e.preventDefault(); fired = false; t0 = performance.now(); raf = requestAnimationFrame(tick); });
-    const cancel = () => { if (raf) { cancelAnimationFrame(raf); raf = null; } if (!fired) set(0); };
+    el.addEventListener('pointerdown', e => {
+      if (!active()) return;
+      e.preventDefault(); fired = false; t0 = performance.now();
+      el.classList.add('holding');
+      raf = requestAnimationFrame(tick);
+    });
+    const cancel = () => {
+      el.classList.remove('holding');
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      if (!fired) set(0);
+    };
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => el.addEventListener(t, cancel));
+    el.addEventListener('click', e => { if (active()) e.preventDefault(); });
     el.addEventListener('contextmenu', e => e.preventDefault());
   }
 
@@ -338,12 +410,19 @@
     const measured = Array.from({ length: n }, () => complete);
     if (raw.get('gnss') === '1' || raw.get('meas') === '1') measured[k] = true;
     const F = SAMPLE.fit;
+    const defCog = i => norm(steer(i) + (ref === 'T' ? vr : 0));
     const vals = Array.from({ length: n }, (_, i) =>
-      complete ? Math.round(norm(steer(i) + F.dev(steer(i)) + (ref === 'T' ? vr : 0))) : steer(i));
+      complete ? Math.round(norm(steer(i) + F.dev(steer(i)) + (ref === 'T' ? vr : 0))) : defCog(i));
+    const syncUnmeasured = () => {
+      for (let i = 0; i < n; i++) if (!measured[i]) vals[i] = defCog(i);
+    };
+    const fmtSigned = d => {
+      const r = Math.round(d);
+      return r === 0 ? '0°' : (r > 0 ? '+' : '−') + Math.abs(r) + '°';
+    };
     const calcDev = idx => {
       const mc = ref === 'T' ? vals[idx] - vr : vals[idx];
-      const d = Math.round(((mc - steer(idx) + 540) % 360) - 180);
-      return d === 0 ? '0°' : (d > 0 ? '+' : '−') + Math.abs(d) + '°' + (d > 0 ? 'E' : 'W');
+      return fmtSigned(((mc - steer(idx) + 540) % 360) - 180);
     };
 
     const app = $('#app');
@@ -366,7 +445,7 @@
           </div>
           <div class="gnss-wrap">
             <div class="dev-amb" id="devAmb">
-              <div class="dev-amb-k">DEVIATION</div>
+              <div class="dev-amb-k" id="devAmbKey">VARIATION</div>
               <div class="dev-amb-v" id="devAmbVal"></div>
             </div>
             <div class="gnss-box" id="cogCtrl">
@@ -376,9 +455,9 @@
               </div>
               <div class="gnss-var-lbl" id="varLbl">VARIATION</div>
               <div class="gnss-var" id="varChips">
-                <button class="var-mini var-btn" id="vm">−</button>
+                <button class="var-mini" id="vm">−</button>
                 <span class="var-mini-val" id="varVal"></span>
-                <button class="var-mini var-btn" id="vp">+</button>
+                <button class="var-mini" id="vp">+</button>
               </div>
             </div>
           </div>
@@ -387,6 +466,11 @@
           <button id="minus" aria-label="minus one degree">−</button>
           <canvas id="tape"></canvas>
           <button id="plus" aria-label="plus one degree">+</button>
+          <div class="tape-marks" id="tapeMarks" aria-hidden="true">
+            <span class="tape-mark cc" id="tmCc">CC</span>
+            <span class="tape-mark mc" id="tmMc">MC</span>
+            <span class="tape-mark tc" id="tmTc">TC</span>
+          </div>
         </div>
       </div>
       <div class="t lights" id="lights"></div>
@@ -396,41 +480,116 @@
         <a class="t alt" id="exit"></a>
       </div>`;
 
-    const tape = Tape($('#tape'), () => vals[k], v => { vals[k] = v; measured[k] = true; render(); });
+    const updateMarks = b => {
+      const box = $('#tapeMarks');
+      if (!box) return;
+      const show = b && (ref === 'T' ? b.visible : b.devVisible);
+      if (!show) {
+        box.classList.remove('show');
+        return;
+      }
+      const rawMarks = [];
+      if (b.pCc.onTape) rawMarks.push({ label: 'CC', x: b.pCc.x, isMc: false });
+      if (b.pMc.onTape) rawMarks.push({ label: 'MC', x: b.pMc.x, isMc: true });
+      if (ref === 'T' && b.pTc && b.pTc.onTape) rawMarks.push({ label: 'TC', x: b.pTc.x, isMc: false });
+      if (!rawMarks.length) {
+        box.classList.remove('show');
+        return;
+      }
+      rawMarks.sort((a, c) => a.x - c.x);
+
+      const groups = [];
+      rawMarks.forEach(m => {
+        const last = groups[groups.length - 1];
+        if (last && Math.abs(m.x - last.x) < 4) {
+          last.labels.push(m.label);
+          last.x = (last.x * (last.labels.length - 1) + m.x) / last.labels.length;
+          last.isMc = last.isMc || m.isMc;
+        } else {
+          groups.push({ labels: [m.label], x: m.x, isMc: m.isMc });
+        }
+      });
+
+      const minSep = 17;
+      for (let pass = 0; pass < 4; pass++) {
+        for (let i = 1; i < groups.length; i++) {
+          const d = groups[i].x - groups[i - 1].x;
+          if (d < minSep) {
+            const push = (minSep - d) / 2;
+            groups[i - 1].x -= push;
+            groups[i].x += push;
+          }
+        }
+      }
+
+      const slots = [$('#tmCc'), $('#tmMc'), $('#tmTc')];
+      slots.forEach((el, i) => {
+        const g = groups[i];
+        if (!g) { el.style.display = 'none'; return; }
+        el.style.display = '';
+        el.innerHTML = g.labels.map(lbl => `<span class="${lbl === 'MC' ? 'tm-mc' : ''}">${lbl}</span>`).join('');
+        el.className = 'tape-mark' + (g.isMc ? ' mc' : '');
+        el.style.left = `${g.x}px`;
+      });
+      box.classList.add('show');
+    };
+
+    const tape = Tape(
+      $('#tape'),
+      () => vals[k],
+      v => { vals[k] = v; measured[k] = true; render(); },
+      () => ({ cc: steer(k), varDeg: ref === 'T' ? vr : 0, isTrue: ref === 'T' }),
+      updateMarks
+    );
 
     function render() {
       const isMeas = measured[k];
-      if (!isMeas) ctrlOpen = false;
+      const boxOpen = ctrlOpen;
+      const showAmb = !boxOpen && (isMeas || ref === 'T');
+      const ambCanOpen = showAmb && !isMeas && ref === 'T';
       $('#steer').innerHTML = `<span class="cc-num">${fmt3(steer(k))}</span><span class="cc-unit">C</span>`;
       $('#cogNum').textContent = fmt3(vals[k]);
       $('#cogUnit').textContent = ref;
       $('#cogMag').classList.toggle('measured', isMeas);
-      $('#devAmb').classList.toggle('show', isMeas && !ctrlOpen);
-      $('#devAmbVal').textContent = calcDev(k);
-      $('#cogCtrl').classList.toggle('open', isMeas && ctrlOpen);
+      $('#devAmb').classList.toggle('show', showAmb);
+      $('#devAmb').classList.toggle('clickable', ambCanOpen);
+      $('#devAmbKey').textContent = isMeas ? 'DEVIATION' : 'VARIATION';
+      $('#devAmbVal').textContent = isMeas ? calcDev(k) : fmtSigned(vr);
+      $('#cogCtrl').classList.toggle('open', boxOpen);
+      $('#cogCtrl').inert = !boxOpen;
+      $('#refM').disabled = !boxOpen;
+      $('#refT').disabled = !boxOpen;
       $('#refM').classList.toggle('on', ref === 'M');
       $('#refT').classList.toggle('on', ref === 'T');
-      $('#varLbl').classList.toggle('show', ref === 'T');
-      $('#varChips').classList.toggle('show', ref === 'T');
-      $('#vm').disabled = ref !== 'T';
-      $('#vp').disabled = ref !== 'T';
-      $('#vm').classList.toggle('on', ref === 'T' && vr < 0);
-      $('#vp').classList.toggle('on', ref === 'T' && vr > 0);
-      $('#varVal').textContent = ref === 'T' ? fmtDev(vr) : '';
+      $('#varLbl').classList.toggle('show', boxOpen && ref === 'T');
+      $('#varChips').classList.toggle('show', boxOpen && ref === 'T');
+      $('#vm').disabled = !boxOpen || ref !== 'T';
+      $('#vp').disabled = !boxOpen || ref !== 'T';
+      $('#varVal').textContent = ref === 'T' ? fmtSigned(vr) : '';
       $('#gps').textContent = localStorage.getItem('deviator.gps') !== '1' ? '' : `GPS ${fmt3(vals[k] + 1)}${ref === 'T' ? 'T' : 'M'} · debug`;
-      const triPts = dir === 'stbd' ? '4,3 24,14 4,25' : '24,3 4,14 24,25';
+      const isPort = dir === 'port';
+      const triPts = !isPort ? '4,3 24,14 4,25' : '24,3 4,14 24,25';
       const triSvg = filled =>
         `<svg viewBox="0 0 28 28" aria-hidden="true"><polygon points="${triPts}" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
+      $('#lights').classList.toggle('port', isPort);
       $('#lights').innerHTML = measured.map((v, j) =>
-        `<span class="lt ${dir === 'stbd' ? 's' : 'p'}${v ? ' meas' : ''}${j === k ? ' cur' : ''}" data-j="${j}">${triSvg(v)}</span>`).join('');
+        `<span class="lt ${!isPort ? 's' : 'p'}${v ? ' meas' : ''}${j === k ? ' cur' : ''}" data-j="${j}">${triSvg(v)}</span>`).join('');
       $('#lights').querySelectorAll('[data-j]').forEach(el => el.onclick = () => { k = +el.dataset.j; ctrlOpen = false; render(); });
-      $('#next').className = 't ' + (isMeas ? 'acc' : 'alt');
-      const all = measured.every(Boolean), ex = $('#exit');
-      ex.textContent = all ? 'FINISH' : 'ABORT';
-      ex.className = 't ' + (all ? 'acc' : 'alt');
-      ex.href = remeasure ? link('review.html', { ref, var: vr, remeasure: null })
-              : all       ? link('finish.html', { ref, var: vr })
-                          : link('confirm.html', { ref, var: vr, what: 'measurement', back: link(here(), { ref, var: vr }), done: 'start.html' });
+      $('#nav').classList.toggle('port', isPort);
+      $('#prev').textContent = isPort ? 'PREV ▶' : '◀ PREV';
+      const all = measured.every(Boolean), ex = $('#exit'), abortMode = !all && !remeasure;
+      $('#next').textContent = `TURN ${Math.round(step)}° ` + (isPort ? 'PORT ◀' : 'STARBOARD ▶');
+      $('#next').className = 't ' + (isMeas && abortMode ? 'acc' : 'alt');
+      ex.textContent = abortMode ? 'ABORT' : 'FINISH';
+      ex.className = 't hold ' + (abortMode ? 'alt abort-hold' : 'acc');
+      if (abortMode) {
+        ex.removeAttribute('href');
+        if (!ex.classList.contains('holding')) ex.style.setProperty('--p', +raw.get('abortp') || 0);
+      } else {
+        ex.style.setProperty('--p', 0);
+        ex.href = remeasure ? link('review.html', { ref, var: vr, remeasure: null })
+                            : link('finish.html', { ref, var: vr });
+      }
       tape.draw();
     }
 
@@ -447,16 +606,17 @@
     }, true);
 
     /* Clicking white #cogMag marks it measured (blue).
-       The variation selector only opens when T/M (#cogUnit) is clicked AND the value is already measured (blue). */
+       The variation selector opens either by clicking T/M (#cogUnit) on a measured (blue) value
+       or by clicking the grey VARIATION readout when it is visible on an unmeasured °T heading. */
     $('#cogMag').onclick = e => {
+      if (closedByOutside) {
+        closedByOutside = false;
+        return;
+      }
       if (!measured[k]) {
         measured[k] = true;
         ctrlOpen = false;
         render();
-        return;
-      }
-      if (closedByOutside) {
-        closedByOutside = false;
         return;
       }
       if (e.target === $('#cogUnit') || $('#cogUnit').contains(e.target)) {
@@ -464,18 +624,26 @@
         render();
       }
     };
-    $('#refM').onclick = () => { ref = 'M'; render(); };
+    $('#devAmb').onclick = () => {
+      if (measured[k] || ref !== 'T' || ctrlOpen) return;
+      ctrlOpen = true;
+      render();
+    };
+    $('#refM').onclick = () => { if (!ctrlOpen) return; ref = 'M'; syncUnmeasured(); render(); };
     $('#refT').onclick = () => {
+      if (!ctrlOpen) return;
       ref = 'T';
+      syncUnmeasured();
       if (!geoTried && vr === 0) {
         geoTried = true;
-        detectVariation(v => { vr = v; render(); });
+        detectVariation(v => { vr = v; syncUnmeasured(); render(); });
       }
       render();
     };
     const pulseVar = (btn, delta) => {
-      if (ref !== 'T') return;
+      if (!ctrlOpen || ref !== 'T') return;
       vr = Math.max(-30, Math.min(30, vr + delta));
+      syncUnmeasured();
       render();
       btn.classList.add('flash');
       clearTimeout(btn._ft);
@@ -486,6 +654,7 @@
 
     $('#prev').onclick = () => { k = (k - 1 + n) % n; ctrlOpen = false; render(); };
     $('#next').onclick = () => { k = (k + 1) % n; ctrlOpen = false; render(); };
+    hold($('#exit'), 2000, () => { location.href = 'start.html'; }, () => !measured.every(Boolean) && !remeasure);
     stepper($('#minus'), () => { vals[k] = norm(vals[k] - 1); measured[k] = true; render(); });
     stepper($('#plus'),  () => { vals[k] = norm(vals[k] + 1); measured[k] = true; render(); });
     new ResizeObserver(render).observe(document.body);

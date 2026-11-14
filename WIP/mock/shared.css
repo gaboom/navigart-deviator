@@ -99,7 +99,7 @@ canvas { display:block; width:100%; height:100%; contain:size; }
 /* ---------- Measurement screen (measure + measure-complete): strictly vertical stack ---------- */
 .measure {
   grid-template-columns:minmax(0,1fr);
-  grid-template-rows:1.618fr 1.272fr auto auto;
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr) auto auto;
   grid-template-areas:"steer" "cog" "lights" "nav";
 }
 #steerT  { grid-area:steer; justify-content:center; align-items:center; text-align:center; gap:2.618cqh; }
@@ -114,53 +114,57 @@ canvas { display:block; width:100%; height:100%; contain:size; }
 .hero-cc .cc-num { text-align:right; }
 .hero-cc .cc-unit { text-align:left; font-size:.58em; font-weight:600; padding-left:.04em; }
 
-/* COG Selector Instrument (second biggest section): magnifier emerging from physics barrel tape */
+/* COG Selector Instrument (second biggest section): aligned 2-tier cockpit grid */
 #cogZone {
-  grid-area:cog; justify-content:center; gap:0;
+  grid-area:cog; justify-content:center; align-items:stretch; gap:0;
+  padding:clamp(12px,2.2cqh,24px) clamp(12px,3.2cqw,20px);
+  --inst-h:clamp(76px,12.2cqh,106px);
+  --stem-h:clamp(10px,1.5cqh,16px);
+  --side-w:clamp(90px,24cqw,114px);
 }
 #cogZone .cog-title {
-  margin-bottom:clamp(10px,2cqh,18px);
+  margin-bottom:clamp(14px,2.8cqh,26px);
 }
 .cog-mid {
-  --mag-h:clamp(60px,9.8cqh,78px);
-  --stem-h:clamp(8px,1.3cqh,13px);
-  display:grid; grid-template-columns:minmax(0,1fr) clamp(128px,36cqw,176px) minmax(0,1fr);
+  display:grid; grid-template-columns:var(--side-w) minmax(0,1fr) var(--side-w);
+  padding:0 2px; column-gap:2px;
   align-items:start; width:100%; position:relative; z-index:2;
 }
 .cog-side-lbl {
-  justify-self:center; height:var(--mag-h);
+  justify-self:center; height:var(--inst-h);
   display:flex; align-items:center; justify-content:center;
-  font-size:clamp(15px,4.2cqmin,22px); font-weight:700; letter-spacing:.12em;
+  font-size:clamp(16px,4.4cqmin,24px); font-weight:700; letter-spacing:.14em;
   color:var(--muted); line-height:1;
 }
 .gnss-wrap {
-  position:relative; height:var(--mag-h);
-  width:100%; min-width:0;
-  display:flex; align-items:center; justify-content:center;
+  position:relative; height:var(--inst-h);
+  width:100%; min-width:0; padding-left:clamp(6px,1.6cqw,10px);
+  display:flex; align-items:stretch; justify-content:flex-end;
 }
 .dev-amb {
-  position:absolute; inset:0;
+  position:absolute; inset:0 0 0 clamp(6px,1.6cqw,10px);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:clamp(3px,.6cqh,6px);
+  gap:clamp(4px,.7cqh,8px);
   visibility:hidden; opacity:0; pointer-events:none;
 }
 .dev-amb.show {
   visibility:visible; opacity:1;
 }
+.dev-amb.clickable {
+  pointer-events:auto; cursor:pointer;
+}
 .dev-amb-k {
-  font-size:clamp(8.5px,2.2cqw,11px); font-weight:700; letter-spacing:.1em;
+  font-size:clamp(8.5px,2.1cqw,11px); font-weight:700; letter-spacing:.12em;
   color:var(--muted); line-height:1;
 }
 .dev-amb-v {
-  font-variant-numeric:tabular-nums; font-size:clamp(19px,5.4cqw,28px);
+  font-variant-numeric:tabular-nums; font-size:clamp(22px,5.6cqw,30px);
   font-weight:700; color:var(--muted); line-height:1; white-space:nowrap;
 }
 .gnss-box {
-  background:var(--tile2); padding:clamp(4px,.7cqh,6px) clamp(5px,1.1cqw,7px);
-  height:100%; width:clamp(84px,23.5cqw,110px);
-  display:grid; grid-template-rows:1fr auto 1fr;
-  gap:clamp(2px,.4cqh,4px);
-  border:1px solid var(--line);
+  width:100%; height:100%;
+  display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch;
+  gap:clamp(3px,.55cqh,6px);
   visibility:hidden; opacity:0; pointer-events:none;
 }
 .gnss-box.open {
@@ -168,72 +172,98 @@ canvas { display:block; width:100%; height:100%; contain:size; }
 }
 .gnss-toggle {
   display:grid; grid-template-columns:1fr 1fr; gap:2px;
-  width:100%; height:100%; min-height:0;
+  background:var(--fg); border:2px solid var(--fg);
+  width:100%; height:clamp(25px,4cqh,35px); flex:none; min-height:0;
 }
 .gnss-seg {
   font:inherit; border:0; background:var(--tile); color:var(--fg);
   width:100%; height:100%; min-height:0;
   display:flex; align-items:center; justify-content:center;
-  font-size:clamp(10px,2.5cqw,13px); font-weight:700; letter-spacing:.03em;
+  font-size:clamp(11px,2.8cqw,14px); font-weight:700; letter-spacing:.03em;
   cursor:pointer; line-height:1; padding:0;
 }
 .gnss-seg.on {
   background:var(--fg); color:var(--tile);
 }
 .gnss-var-lbl {
-  font-size:clamp(7.5px,1.9cqw,9.5px); font-weight:700; letter-spacing:.12em;
-  color:var(--muted); text-align:center; line-height:1; padding-top:1px;
+  display:none; margin-top:auto;
+  font-size:clamp(7.5px,1.85cqw,9.5px); font-weight:700; letter-spacing:.12em;
+  color:var(--muted); text-align:center; line-height:1;
   visibility:hidden; opacity:0;
 }
-.gnss-var-lbl.show {
-  visibility:visible; opacity:1;
+.gnss-box:not(.open),
+.gnss-box:not(.open) * {
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+.gnss-box.open .gnss-var-lbl.show {
+  display:block; visibility:visible; opacity:1;
 }
 .gnss-var {
-  display:grid; grid-template-columns:clamp(20px,5.4cqw,26px) minmax(0,1fr) clamp(20px,5.4cqw,26px);
-  gap:3px; align-items:center; height:100%; min-height:0;
+  display:none;
+  grid-template-columns:clamp(24px,6.2cqw,32px) minmax(0,1fr) clamp(24px,6.2cqw,32px);
+  gap:2px; background:var(--fg); border:2px solid var(--fg);
+  align-items:stretch; height:clamp(28px,4.4cqh,38px); flex:none; min-height:0;
   visibility:hidden; opacity:0; pointer-events:none;
 }
-.gnss-var.show {
-  visibility:visible; opacity:1; pointer-events:auto;
+.gnss-box.open .gnss-var.show {
+  display:grid; visibility:visible; opacity:1; pointer-events:auto;
 }
 .var-mini {
   font:inherit; border:0; background:var(--tile); color:var(--fg);
-  font-size:clamp(12px,3.2cqmin,16px); font-weight:600; line-height:1;
+  font-size:clamp(15px,4cqmin,20px); font-weight:500; line-height:1;
   height:100%; width:100%; min-height:0; cursor:pointer; padding:0;
 }
 .var-mini:disabled { cursor:default; }
 .var-mini-val {
-  font-variant-numeric:tabular-nums; font-size:clamp(8.5px,2.15cqw,11px);
+  background:var(--tile); color:var(--fg);
+  display:flex; align-items:center; justify-content:center;
+  font-variant-numeric:tabular-nums; font-size:clamp(12px,3.2cqw,16px);
   font-weight:700; text-align:center; line-height:1; white-space:nowrap;
 }
-.var-btn.on { background:var(--fg); color:var(--tile); }
-.var-btn.on:active, .var-btn.on.flash { background:var(--tile2) !important; color:var(--fg) !important; filter:none !important; }
-.var-btn:not(.on):active, .var-btn:not(.on).flash { background:var(--fg) !important; color:var(--tile) !important; filter:none !important; }
+.var-mini:active, .var-mini.flash { background:var(--fg) !important; color:var(--tile) !important; filter:none !important; }
 
 /* Magnified COG readout emerging out of the center lubber line of the horizontal tape */
 .cog-mag-wrap {
   display:flex; flex-direction:column; align-items:center; justify-content:flex-start; width:100%;
 }
 .cog-mag {
-  font:inherit; border:2px solid var(--acc); background:var(--tile); color:var(--fg);
-  width:100%; height:var(--mag-h); padding:0 clamp(6px,1.5cqw,12px);
+  font:inherit; border:2px solid var(--fg); background:var(--tile); color:var(--fg);
+  width:100%; height:var(--inst-h); padding:0 clamp(6px,1.5cqw,12px);
   display:inline-grid; grid-template-columns:auto .65em; align-items:baseline; align-content:center; justify-content:center;
   font-variant-numeric:tabular-nums; font-weight:600;
-  font-size:clamp(26px,min(14cqw,7.2cqh),52px); line-height:.92;
+  font-size:clamp(30px,min(13cqw,7.6cqh),58px); line-height:.92;
   cursor:pointer;
 }
 .cog-mag.measured { background:var(--acc); color:var(--accfg); }
 .cog-mag .mag-num { text-align:right; }
 .cog-mag .mag-unit { text-align:center; font-size:.58em; font-weight:600; }
-.mag-stem { width:3px; height:var(--stem-h); background:var(--acc); }
+.mag-stem { width:2.5px; height:var(--stem-h); background:var(--fg); }
 
 /* Pronounced +/- bar + physics-like horizontal grabbing barrel inside #cogZone */
 #cogZone #tapeT {
-  width:100%; min-width:0;
-  grid-template-columns:clamp(64px,18cqw,92px) minmax(0,1fr) clamp(64px,18cqw,92px);
-  height:clamp(74px,13cqh,118px);
+  position:relative; width:100%; min-width:0;
+  grid-template-columns:var(--side-w) minmax(0,1fr) var(--side-w);
+  height:var(--inst-h);
   border:2px solid var(--fg); background:var(--fg); gap:2px;
 }
+.tape-marks {
+  position:absolute; left:calc(var(--side-w) + 2px); right:calc(var(--side-w) + 2px);
+  top:calc(100% + 2px);
+  pointer-events:none; visibility:hidden; opacity:0;
+}
+.tape-marks.show { visibility:visible; opacity:1; }
+.tape-mark {
+  position:absolute; top:0; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center;
+  font-size:clamp(8.5px,2.1cqw,10.5px); font-weight:700; letter-spacing:.06em;
+  line-height:1.15; white-space:nowrap; color:var(--muted); text-align:center;
+}
+.tape-mark::before {
+  content:""; width:1.5px; height:clamp(3px,.5cqh,5px); margin-bottom:2px; background:currentColor;
+}
+.tape-mark.mc::before, .tape-mark .tm-mc { color:var(--acc); }
+body.night .tape-mark.mc::before, body.night .tape-mark .tm-mc { color:var(--fg); }
 #cogZone #tapeT button {
   background:var(--tile); color:var(--fg);
   font-size:clamp(36px,10cqmin,60px); font-weight:400; line-height:1;
@@ -241,9 +271,17 @@ canvas { display:block; width:100%; height:100%; contain:size; }
 #cogZone #tapeT button:active { background:var(--fg); color:var(--tile); }
 
 #lights  { grid-area:lights; }
-#nav     { grid-area:nav; display:grid; grid-template-columns:1fr 2.6fr 1.2fr; gap:var(--gap); height:clamp(56px,9cqh,84px); }
-#nav .t  { flex-direction:row; justify-content:center; align-items:center; text-align:center; font-weight:600; font-size:clamp(13px,3.8cqmin,20px); white-space:nowrap; gap:.35em; }
-#next    { font-size:clamp(22px,6.5cqmin,38px) !important; }
+#lights.port { flex-direction:row-reverse; }
+#nav     { grid-area:nav; display:grid; grid-template-columns:1fr 2.8fr 1.15fr; gap:var(--gap); height:clamp(56px,9cqh,84px); }
+#nav.port { grid-template-columns:1.15fr 2.8fr 1fr; }
+#nav.port #exit { order:1; }
+#nav.port #next { order:2; }
+#nav.port #prev { order:3; }
+#nav .t  { flex-direction:row; justify-content:center; align-items:center; text-align:center; padding:clamp(6px,1.5cqmin,12px) clamp(6px,1.8cqw,12px); font-weight:600; font-size:clamp(12px,3.3cqw,18px); white-space:nowrap; gap:.35em; }
+#next    { font-size:clamp(12.5px,3.35cqw,19px) !important; }
+#exit.abort-hold:active { filter:none; }
+#exit.abort-hold::before { background:rgba(225,75,40,.46); z-index:1; }
+body.night #exit.abort-hold::before { background:rgba(245,58,74,.38); }
 .gps     { position:absolute; right:clamp(8px,2.2cqmin,18px); bottom:clamp(6px,1.8cqmin,14px); font-size:clamp(10px,2.5cqmin,13px); opacity:.3; }
 
 /* Hero numerals: sized from the tile's own width and container height */
