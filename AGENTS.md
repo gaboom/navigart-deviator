@@ -69,11 +69,10 @@ By discrete Fourier orthogonality over evenly spaced points:
    - Unmeasured headings (`!measured[j]`): **empty outline triangle** in `--muted` grey (never green/red before measurement). Measured headings (`measured[j]`): **full solid triangle** in green (`--stbd`) or red (`--port`).
    - All triangles are scaled larger (`clamp(19px, 5.2cqw, 26px)`), with **no square frame** on the active heading; instead, the active heading's triangle (`.lt.cur`) is displayed **even bigger** (`clamp(29px, 8cqw, 40px)`). Tapping any indicator light jumps directly to that heading.
    - `#next` (`TURN <step>° STARBOARD ▶` / `TURN <step>° PORT ◀`) renders **grey** (`.t.alt`, still clickable) when the current heading has not been measured yet, turns **accent** (`.t.acc`) once the current heading is measured while headings remain (`abortMode`), and returns to **grey** (`.t.alt`) once all headings are measured (or in `remeasure` mode) so only `FINISH` renders **accent**.
-   - The abort/finish navigation tile (`#exit`, right in Starboard, left in Port) reads `ABORT` until all $n$ headings in the active round are measured (`measured.every(Boolean)`), at which point it transforms into `FINISH` (accent tile, single tap). In `ABORT` mode, a quick tap is a no-op; holding for `2000ms` sweeps a reddish overlay (`rgba(225,75,40,.46)` in Light / `rgba(245,58,74,.38)` in Night, distinct from `--port`) across `#exit` and navigates directly to `start.html` on completion (eliminating the `confirm.html` hop for measurement abort).
-4. **Destructive Action Confirmation (`confirm.html`)**:
-   - Never use `window.confirm()` or small popups.
-   - Route non-inline destructive actions (`DELETE`, `ERASE ALL DATA`) to the full-screen confirmation state (measurement `ABORT` uses direct 2-second long-press on `#exit`).
-   - The **safe option** is the largest accent tile at the bottom; the **danger tile** sits above it (never overlapping the triggering button's screen coordinates) and requires a continuous `2000ms` pointer hold (`requestAnimationFrame` progress bar `--p: 0..1`) that resets immediately on release/cancel.
+   - The abort/finish navigation tile (`#exit`, right in Starboard, left in Port) reads `ABORT` until all $n$ headings in the active round are measured (`measured.every(Boolean)`), at which point it transforms into `FINISH` (accent tile, single tap → `review.html`). In `ABORT` mode, a quick tap is a no-op; holding for `1200ms` (`Mock.HOLD_MS`) sweeps a reddish overlay (`rgba(225,75,40,.46)` in Light / `rgba(245,58,74,.38)` in Night, distinct from `--port`) across `#exit` and navigates directly to `start.html` (or `review.html` during re-measurement) on completion.
+4. **Uniform Inline Hold-to-Confirm (`HOLD_MS = 1200ms`)**:
+   - Never use `window.confirm()`, small modal popups, or a separate confirmation page (`confirm.html` removed).
+   - Every destructive or reset action (`ABORT` on `measure.html`/`review.html`, `#rePort`/`#reStbd` on `review.html`, `.del` `DELETE` on `saved.html`, and `#erase` `ERASE ALL DATA` on `settings.html`) binds `hold(el, HOLD_MS, ...)` with a live `requestAnimationFrame` progress bar (`--p: 0..1`) that resets immediately on release/cancel.
 5. **System Back Button, Persistence & Disabled Browser/OS Misc Interactions**:
    - Production app traps `popstate` via `history.pushState` so Android/iOS edge-back gestures do nothing.
    - Every state transition and measurement change persists immediately to `localStorage` so reloading or reopening the PWA resumes at the exact workflow step.
@@ -89,32 +88,43 @@ By discrete Fourier orthogonality over evenly spaced points:
 - `deviator.theme`: `'light' | 'night' | 'auto'` (default `'auto'`)
 - `deviator.gps`: `'0' | '1'` (default `'0'`, debug device GPS cross-check)
 - `deviator.active`: JSON of in-progress measurement session (or `null` when idle)
-- `deviator.tables`: JSON array of saved, immutable boat tables (pure compass deviation only—no measurement `ref` or `var` is ever persisted):
+- `deviator.tables`: JSON array of saved tables (starts `[]`; pure `0.5°`-precision compass deviation only so harmonic fit & converter reproduce the exact Review curve bit-for-bit, formatted as symmetric integers in UI tables via `fmtDev`; timestamps stored internally in shortest ISO-8601 UTC `YYYY-MM-DDTHH:MM:SSZ`; default `title` is `""` and displays the local-time conversion of `createdAt` without duplicating it in metadata, moving the local time into the subtitle once the user sets a non-empty `title`; no measurement `ref` or `var` is ever persisted):
   ```json
   {
-    "id": "2026-10-09-kittiwake-1",
-    "boat": "Kittiwake",
-    "date": "2026-10-09",
+    "id": "2026-11-17-mi3a1b",
+    "title": "",
+    "createdAt": "2026-11-17T21:15:08Z",
     "n": 8,
-    "dev": [-1.5, 2.0, 4.5, 3.0, 0.5, -2.5, -4.0, -3.5]
+    "dev": [-1.5, 2, 4, 3, -0.5, -3, -3.5, -3]
   }
   ```
 
 ### Share URL Hash Format
-- `https://deviator.navigart.net/#t=v1&b=<boat>&d=<YYYY-MM-DD>&n=<6|8|12>&dev=<d0,d1,...>`
+- `https://deviator.navigart.net/#t=v1&title=<title>&d=<YYYY-MM-DD>&n=<6|8|12>&dev=<d0,d1,...>`
 
 ---
 
 ## 4. Working with the Mocks & Automated Verification
 
-- **Mock Rules**: Keep exactly one HTML file per flow state in [`WIP/mock/`](WIP/mock/index.html) (`start.html`, `setup.html`, `measure.html`, `measure-complete.html`, `finish.html`, `confirm.html`, `review.html`, `review-heading.html`, `save.html`, `deviation-table.html`, `saved.html`, `settings.html`). Never create versioned duplicates (`v1`, `v2`).
+- **Mock Rules**: Keep exactly one HTML file per flow state in [`WIP/mock/`](WIP/mock/index.html) (`start.html`, `setup.html`, `measure.html`, `review.html`, `deviation-table.html`, `saved.html`, `settings.html`). Never create versioned duplicates (`v1`, `v2`).
 - **Local Server**:
   ```powershell
   npx --yes http-server WIP/mock -p 8080 -c-1 --silent
   ```
 - **Browser Verification**:
-  Verify all 12 flow states across phone portrait (`390×844`), phone landscape (`844×390`), and tablet (`1024×768`) in both Light and Night modes, checking that `scrollWidth <= innerWidth`, `scrollHeight <= innerHeight`, and zero console/page errors occur. (When capturing headless Chromium screenshots on Windows, pass `--force-device-scale-factor=1 --window-size=540,860` because Windows enforces a `504px` minimum outer window width.)
+  Verify all 7 flow states across phone portrait (`390×844`), phone landscape (`844×390`), and tablet (`1024×768`) in both Light and Night modes, checking that `scrollWidth <= innerWidth`, `scrollHeight <= innerHeight`, and zero console/page errors occur. (When capturing headless Chromium screenshots on Windows, pass `--force-device-scale-factor=1 --window-size=540,860` because Windows enforces a `504px` minimum outer window width.)
 - **Current Page-by-Page Review Progress**:
-  - **Page 1 (`start.html`)**: Completed & signed off.
+  - **Page 1 (`start.html`)**: Completed & signed off (starts empty with zero saved tables; `Open saved` appears once a table is saved).
   - **Page 2 (`setup.html`)**: Completed & signed off.
-  - **Page 3 (`measure.html`)**: In progress — Top section (`#steerT`: `STEER · COMPASS COURSE`, `000°C`) and middle section (`#cogZone`: `MEASURE · COURSE OVER GROUND`, `COG` | `000°M`/`000°T` | `DEVIATION` / `DEVIATION TO GNSS`, and 3D barrel `#tapeT`) completed; next up on `measure.html` are the lower sections (`#lights` indicator row and `#nav` `PREV` / `NEXT` / `ABORT` row, including moving the round/turning direction text into the `NEXT` button) before proceeding through Pages 4–12 (`measure-complete.html`, `finish.html`, `confirm.html`, `review.html`, `review-heading.html`, `save.html`, `deviation-table.html`, `saved.html`, `settings.html`).
+  - **Page 3 (`measure.html`)**: Completed & signed off (`measure-complete.html` removed; `measure.html?complete=1` covers the all-measured `FINISH` state, which now navigates directly to `review.html`).
+  - **Page 4 (`review.html`, merged with `finish.html` & single-heading remeasure)**: Completed & signed off (`SAVE TO DEVIATION TABLES` auto-saves as shortest ISO-8601 UTC `YYYY-MM-DDTHH:MM:SSZ` directly into `localStorage` and opens `deviation-table.html`).
+  - **Page 5 (`confirm.html`) & Page 6 (`save.html`)**: Removed (`confirm.html` replaced by `1200ms` inline `hold()`; `save.html` replaced by instant UTC timestamp auto-save + inline `saved.html` rename).
+  - **In Review (`deviation-table.html`, `saved.html`)**:
+    - `deviation-table.html`: Redesigned with header title/timestamp strip (`+TZ ↔ Z` toggle + inline `RENAME` drawer), borderless interactive curve chart (`8`-wind roses + click/drag sync + curve pill), clickable deviation grid, 3-way `COMPASS °C | MAGNETIC °M | TRUE °T` segmented selector, `measure.html`-matched 3-column magnifier + barrel tape (`CC↔MC` blue deviation band, `MC↔TC` variation band, stacked `CC/MC/TC` marks, inline `VARIATION ±30°` + `WMM2025 AUTO`), and 3-tile outputs (`Magnetic`/`Steer Compass`, `True`/`Magnetic`, `Dev · Error`).
+    - `saved.html`: Redesigned with free-form `title` (default `""`, displaying local `+TZ` converted from stored UTC `Z` with click-to-toggle `Z`), inline `RENAME` + compass-type examples, and `1200ms` hold `DELETE`.
+    - Remaining: `settings.html`.
+- **TODO (Run After All Pages Are Signed Off)**:
+  - Holistic end-of-pass review across the full `start → setup → measure ↔ review → deviation-table → saved → settings` flow: verify consistency between `review.html` and the rest of the measurement/table flow, audit Back/return paths on every screen (`setup.html`, `saved.html`, `settings.html`, `deviation-table.html`), and run full responsive & Light/Night verification across all 7 pages.
+- **Later `v2` / Production PWA Tasks (`docs/`)**:
+  - Define GitHub Pages `404.html` and offline/error fallback screens tailored to static hosting (`deviator.navigart.net`).
+  - Design share URL structure, rich link previews in messaging apps (since URL `#hash` fragments aren't seen by server scrapers / static meta tags), and mobile offline installed PWA schema registration (`manifest.json` `protocol_handlers`, deep links / `start_url` handling when offline).

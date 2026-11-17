@@ -32,13 +32,14 @@
       <div class="t" id="gps"><div class="k">Debug · device GPS cross-check</div>${chips('gps', [['0', 'OFF'], ['1', 'ON']], gps)}
         <div class="sub">A faint reading on the measurement screen. Never a substitute for the chartplotter COG.</div></div>
       <div class="t alt" id="about"><div class="k">About</div><div class="sub">Deviator works fully offline. Everything stays on this device; there is no account and no server.</div></div>
-      <a class="t danger" id="erase" href="${link('confirm.html', { what: 'all', back: link('settings.html', { from }), done: 'start.html' })}"><div class="k">Danger zone</div><div class="btn">ERASE ALL DATA</div></a>
+      <button type="button" class="t danger" id="erase"><div class="k">Hold to erase</div><div class="btn">ERASE ALL DATA</div></button>
       <a class="t acc" id="close" href="${from}"><div class="v md">CLOSE</div></a>`;
     document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
       const k = b.dataset.k; if (k === 'theme') { localStorage.setItem('deviator.theme', b.dataset.v); Mock.applyTheme(); }
       if (k === 'gps') localStorage.setItem('deviator.gps', b.dataset.v);
       render();
     });
+    Mock.hold($('#erase'), Mock.HOLD_MS, () => { localStorage.clear(); location.href = 'start.html'; });
   }
   render();
 </script>

@@ -7,105 +7,307 @@
 <link rel="stylesheet" href="shared.css">
 <link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
 <style>
-  /* Strictly vertical top-to-bottom flow:
-     1. Curve chart -> 2. Table strip -> 3. Mode toggle -> 4. Input course -> 5. Tape ± -> 6. Output course -> 7. Dev/True -> 8. Actions */
   .app {
-    grid-template-columns:1fr;
-    grid-template-rows:minmax(110px,1.2fr) auto auto auto auto auto auto auto;
-    grid-template-areas:"chart" "table" "mode" "in" "tape" "out" "meta" "acts";
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto minmax(112px,1.35fr) auto auto auto auto auto;
+    grid-template-areas:"head" "chart" "table" "mode" "cog" "out" "acts";
   }
+  .app > * { min-width:0; }
+  #headBar {
+    grid-area:head; display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;
+    background:var(--tile2); padding:clamp(4px,.65cqh,6px) clamp(10px,3cqw,18px);
+    min-height:clamp(24px,3.4cqh,30px);
+    font-size:clamp(8.5px,2.15cqw,12px); letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); font-weight:600;
+  }
+  #headTxt { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ts-toggle { cursor:pointer; font-variant-numeric:tabular-nums; }
+  #renBtn {
+    font:inherit; border:0; background:transparent; color:var(--fg); cursor:pointer;
+    padding:0; font-weight:700; letter-spacing:.08em; text-transform:uppercase; flex:none;
+  }
+  .ren-drawer {
+    grid-column:1; background:var(--tile); padding:clamp(10px,2.4cqw,16px);
+    display:none; flex-direction:column; gap:clamp(8px,1.3cqh,12px);
+  }
+  .ren-drawer.open { display:flex; }
+  .ren-in {
+    font:inherit; font-size:clamp(16px,4.8cqw,24px); font-weight:400; width:100%; border:0;
+    border-bottom:2px solid var(--fg); background:transparent; color:var(--fg);
+    outline:none; padding:4px 0; -webkit-user-select:text; user-select:text;
+  }
+  .ex-chips { display:flex; flex-wrap:wrap; gap:var(--gap); }
+  .ex-chip {
+    font:inherit; border:0; background:var(--tile2); color:var(--fg); cursor:pointer;
+    padding:clamp(4px,.7cqh,7px) clamp(8px,2cqw,12px); font-size:clamp(10.5px,2.9cqw,14px); font-weight:500;
+  }
+  .ex-chip.on { background:var(--fg); color:var(--tile); }
+  .ren-acts { display:grid; grid-template-columns:1fr 1.618fr; gap:var(--gap); }
+  .ren-acts .t { min-height:clamp(38px,5.8cqh,50px); align-items:center; justify-content:center; text-align:center; font-size:clamp(11px,3.2cqw,16px); font-weight:600; }
+
   #chartT { grid-area:chart; padding:0; }
-  #chartT .k { position:absolute; left:clamp(8px,2.2cqmin,18px); top:clamp(6px,1.5cqmin,12px); z-index:1; }
+  #chart { cursor:crosshair; touch-action:pan-y; }
   #table { grid-area:table; display:grid; grid-template-columns:repeat(var(--cols,8),1fr); gap:var(--gap); }
-  .cell { background:var(--tile); padding:clamp(4px,1cqh,10px) 0; text-align:center; cursor:pointer; }
-  .cell .h { font-size:clamp(10px,2.5cqmin,14px); color:var(--muted); font-variant-numeric:tabular-nums; }
-  .cell .d { font-size:clamp(14px,3.8cqmin,22px); font-weight:600; font-variant-numeric:tabular-nums; }
+  .cell { background:var(--tile); padding:clamp(4px,.8cqh,8px) 0; text-align:center; cursor:pointer; }
+  .cell .h { font-size:clamp(9.5px,2.4cqmin,13px); color:var(--muted); font-variant-numeric:tabular-nums; }
+  .cell .d { font-size:clamp(13px,3.6cqmin,20px); font-weight:600; font-variant-numeric:tabular-nums; }
   .cell.on { background:var(--acc); color:var(--accfg); } .cell.on .h { color:var(--accfg); }
-  #modeRow { grid-area:mode; display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
-  .modeb { font-size:clamp(13px,3.5cqmin,20px); font-weight:600; justify-content:center; align-items:center; text-align:center; min-height:clamp(36px,5.5cqh,52px); }
+
+  #modeRow { grid-area:mode; display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--gap); }
+  .modeb { font-size:clamp(11px,3.1cqw,16px); font-weight:600; justify-content:center; align-items:center; text-align:center; min-height:clamp(34px,5.2cqh,48px); padding:4px; white-space:nowrap; }
   button.t.modeb.on { background:var(--fg); color:var(--tile); }
-  #in { grid-area:in; flex-direction:row; align-items:baseline; justify-content:space-between; }
-  #out { grid-area:out; flex-direction:row; align-items:baseline; justify-content:space-between; }
-  #meta { grid-area:meta; display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
-  #acts { grid-area:acts; display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--gap); height:clamp(46px,7.5cqh,72px); }
-  #acts .t { justify-content:center; align-items:center; text-align:center; font-weight:600; font-size:clamp(13px,3.6cqmin,20px); }
+
+  #convZone.cog-zone {
+    --inst-h:clamp(66px,10.2cqh,90px);
+    --stem-h:clamp(8px,1.2cqh,13px);
+    --side-w:clamp(84px,23cqw,108px);
+    padding:clamp(10px,1.8cqh,18px) clamp(10px,2.8cqw,18px) clamp(18px,3cqh,26px);
+  }
+  #convZone .cog-side-lbl { font-size:clamp(11px,3cqw,16px); letter-spacing:.1em; }
+  #convZone .cog-mag { font-size:clamp(26px,min(11.5cqw,6.4cqh),48px); }
+  .gnss-auto {
+    font:inherit; border:0; background:var(--tile); color:var(--fg); width:100%; height:100%;
+    font-size:clamp(10px,2.6cqw,13px); font-weight:700; letter-spacing:.08em; cursor:pointer;
+  }
+  .gnss-auto:active { background:var(--fg); color:var(--tile); }
+
+  #outRow { grid-area:out; display:grid; grid-template-columns:1.15fr 1.15fr .95fr; gap:var(--gap); }
+  #outRow .t { padding:clamp(8px,1.6cqh,14px) clamp(10px,2.4cqw,16px); gap:clamp(2px,.4cqh,5px); justify-content:center; }
+  #outRow .out-v { font-size:clamp(20px,6cqw,34px); font-weight:600; font-variant-numeric:tabular-nums; line-height:1; white-space:nowrap; }
+  #outRow .out-sub { font-size:clamp(12px,3.4cqw,18px); font-weight:600; font-variant-numeric:tabular-nums; line-height:1.15; white-space:nowrap; }
+
+  #acts { grid-area:acts; display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--gap); height:clamp(44px,7cqh,64px); }
+  #acts .t { justify-content:center; align-items:center; text-align:center; font-weight:600; font-size:clamp(12px,3.4cqw,18px); }
 </style>
 </head>
 <body>
 <div class="app" id="app">
-  <div class="t" id="chartT"><div class="k" id="chartK"></div><canvas id="chart"></canvas></div>
+  <div id="headBar"><span id="headTxt"></span><button type="button" id="renBtn">RENAME</button></div>
+  <div class="ren-drawer" id="renBox">
+    <input class="ren-in" id="renIn" placeholder="e.g. Kittiwake · Main navigation compass" autocomplete="off" spellcheck="false">
+    <div class="ex-chips" id="exChips"></div>
+    <div class="ren-acts">
+      <button type="button" class="t alt" id="renCancel">CANCEL</button>
+      <button type="button" class="t acc" id="renSave">SAVE TITLE</button>
+    </div>
+  </div>
+  <div class="t" id="chartT"><canvas id="chart"></canvas></div>
   <div id="table"></div>
   <div id="modeRow">
-    <button class="t alt modeb on" id="mCC">Compass → Magnetic</button>
-    <button class="t alt modeb" id="mMC">Magnetic → Compass</button>
+    <button class="t alt modeb on" id="mCC" type="button">Compass °C</button>
+    <button class="t alt modeb" id="mMC" type="button">Magnetic °M</button>
+    <button class="t alt modeb" id="mTC" type="button">True °T</button>
   </div>
-  <div class="t" id="in"><div class="k" id="inLbl">Compass</div><div class="v xl" id="inVal"></div></div>
-  <div id="tapeT">
-    <button id="minus" aria-label="minus one degree">−</button>
-    <canvas id="tape"></canvas>
-    <button id="plus" aria-label="plus one degree">+</button>
+  <div class="t cog-zone" id="convZone">
+    <div class="cog-mid">
+      <div class="cog-side-lbl" id="inSideLbl">COMPASS</div>
+      <div class="cog-mag-wrap">
+        <div class="cog-mag" id="cogMag"><span class="mag-num" id="magNum"></span><span class="mag-unit" id="magUnit"></span></div>
+        <div class="mag-stem"></div>
+      </div>
+      <div class="gnss-wrap">
+        <div class="dev-amb show clickable" id="devAmb" title="Tap to edit conversion variation">
+          <div class="dev-amb-k">VARIATION</div>
+          <div class="dev-amb-v" id="varAmbVal">0°</div>
+        </div>
+        <div class="gnss-box" id="cogCtrl">
+          <div class="gnss-toggle" style="grid-template-columns:1fr">
+            <button class="gnss-auto" id="varAuto" type="button">WMM2025 AUTO</button>
+          </div>
+          <div class="gnss-var-lbl show">VARIATION</div>
+          <div class="gnss-var show">
+            <button class="var-mini" id="vm" type="button">−</button>
+            <span class="var-mini-val" id="varVal">0°</span>
+            <button class="var-mini" id="vp" type="button">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="tapeT">
+      <button id="minus" type="button" aria-label="minus one degree">−</button>
+      <canvas id="tape"></canvas>
+      <button id="plus" type="button" aria-label="plus one degree">+</button>
+      <div class="tape-marks" id="tapeMarks" aria-hidden="true">
+        <span class="tape-mark cc" id="tmCc">CC</span>
+        <span class="tape-mark mc" id="tmMc">MC</span>
+        <span class="tape-mark tc" id="tmTc">TC</span>
+      </div>
+    </div>
   </div>
-  <div class="t acc" id="out"><div class="k" id="outLbl">Magnetic</div><div class="v xl" id="outVal"></div></div>
-  <div id="meta">
-    <div class="t alt" id="dev"><div class="k">Deviation</div><div class="v md" id="devVal"></div></div>
-    <button class="t alt" id="tc" title="Tap to adjust variation for True course"><div class="k" id="varTxt">True</div><div class="v md" id="tcVal"></div></button>
+  <div id="outRow">
+    <div class="t acc" id="out1"><div class="k" id="out1Lbl">Magnetic</div><div class="out-v" id="out1Val"></div></div>
+    <div class="t alt" id="out2"><div class="k" id="out2Lbl">True</div><div class="out-v" id="out2Val"></div></div>
+    <div class="t alt" id="out3"><div class="k">Dev · Error</div><div class="out-sub" id="out3Val"></div></div>
   </div>
   <div id="acts">
-    <button class="t alt" id="share">SHARE</button>
+    <button class="t alt" id="share" type="button">SHARE</button>
     <a class="t alt" id="settings">SETTINGS</a>
     <a class="t alt" id="close" href="start.html">CLOSE</a>
   </div>
 </div>
 <script src="shared.js"></script>
 <script>
-  const { $, norm, fmt3, fmtDev, link } = Mock;
+  const { $, norm, fmt3, fmtDev, fmtSigned, fmtTime, link, renderTapeMarks, TYPE_EXAMPLES, applyTypeExample, updateTableTitle, detectVariation } = Mock;
+  const q = new URLSearchParams(location.search);
   const p = Mock.params(), S = Mock.sample(p), F = S.fit;
-  let VAR = 0;
-  let mode = 'cc2mc', value = S.H[1] || 45;
+  let curTitle = S.title || '', showUtc = q.get('utc') === '1', renOpen = false, varOpen = false;
+  let VAR = q.has('var') ? +q.get('var') : 0;
+  let mode = q.get('mode') === 'mc' ? 'mc' : q.get('mode') === 'tc' ? 'tc' : 'cc';
+  let value = S.H[1] || 45;
   const COLS = { 4: 4, 6: 6, 8: 8, 10: 5, 12: 6 };
 
-  $('#chartK').textContent = `${S.boat} · ${S.date} · ${S.H.length} headings`;
-  $('#settings').href = link('settings.html', { from: 'deviation-table.html' });
+  function renderHead() {
+    const cr = S.createdAt || S.date;
+    const hasT = Boolean(curTitle && curTitle.trim());
+    if (hasT) {
+      const ts = cr ? ` · <span class="ts-toggle" id="tsBtn">${fmtTime(cr, { utc: showUtc, sec: false })}</span>` : '';
+      $('#headTxt').innerHTML = `${curTitle}${ts} · ${S.H.length} HEADINGS`;
+    } else {
+      const ts = `<span class="ts-toggle" id="tsBtn">${fmtTime(cr, { utc: showUtc, sec: true })}</span>`;
+      $('#headTxt').innerHTML = `${ts} · ${S.H.length} HEADINGS`;
+    }
+    const tsEl = $('#tsBtn');
+    if (tsEl) tsEl.onclick = () => { showUtc = !showUtc; renderHead(); };
+  }
+  renderHead();
+
+  $('#renBtn').onclick = () => {
+    renOpen = !renOpen;
+    $('#renBox').classList.toggle('open', renOpen);
+    if (renOpen) {
+      $('#renIn').value = curTitle;
+      $('#exChips').innerHTML = TYPE_EXAMPLES.map(ex => `<button type="button" class="ex-chip${curTitle.includes(ex) ? ' on' : ''}" data-ex="${ex}">${ex}</button>`).join('');
+      document.querySelectorAll('#exChips [data-ex]').forEach(ch => {
+        ch.onclick = () => {
+          $('#renIn').value = applyTypeExample($('#renIn').value, ch.dataset.ex);
+          document.querySelectorAll('#exChips [data-ex]').forEach(x => x.classList.toggle('on', $('#renIn').value.includes(x.dataset.ex)));
+          $('#renIn').focus();
+        };
+      });
+      $('#renIn').focus(); $('#renIn').select();
+    }
+  };
+  $('#renCancel').onclick = () => { renOpen = false; $('#renBox').classList.remove('open'); };
+  const saveRename = () => {
+    curTitle = ($('#renIn').value || '').trim();
+    if (S.id) updateTableTitle(S.id, curTitle);
+    renOpen = false; $('#renBox').classList.remove('open'); renderHead();
+  };
+  $('#renSave').onclick = saveRename;
+  $('#renIn').onkeydown = e => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') $('#renCancel').click(); };
+
+  $('#settings').href = link('settings.html', { from: location.pathname.split('/').pop() + location.search });
   $('#table').style.setProperty('--cols', COLS[S.H.length] || S.H.length);
   S.H.forEach((h, i) => {
     const c = document.createElement('div'); c.className = 'cell';
     c.innerHTML = `<div class="h">${String(h).padStart(3, '0')}</div><div class="d">${fmtDev(S.avg[i])}</div>`;
-    c.onclick = () => { setMode('cc2mc'); value = h; render(); };
+    c.onclick = () => { mode = 'cc'; syncModeBtns(); value = h; render(); };
     $('#table').appendChild(c);
   });
-  const tape = Mock.Tape($('#tape'), () => value, v => { value = v; render(); });
-  const cursorCC = () => mode === 'cc2mc' ? value : F.toCC(value);
+
+  const activeCC = (m, val) => m === 'cc' ? val : m === 'mc' ? F.toCC(val) : F.toCC(norm(val - VAR));
+  const coursesAt = (m, val) => {
+    const cc = activeCC(m, val), mc = m === 'mc' ? val : F.toMC(cc), tc = m === 'tc' ? val : norm(mc + VAR);
+    return { cc, mc, tc };
+  };
+
+  const tape = Mock.Tape(
+    $('#tape'),
+    () => value,
+    v => { value = v; render(); },
+    vf => {
+      const { cc, mc, tc } = coursesAt(mode, vf);
+      return { cc, mc, tc, varDeg: VAR, isTrue: VAR !== 0 || mode === 'tc' };
+    },
+    b => renderTapeMarks($('#tapeMarks'), b, VAR !== 0 || mode === 'tc')
+  );
+
+  function syncModeBtns() {
+    $('#mCC').classList.toggle('on', mode === 'cc');
+    $('#mMC').classList.toggle('on', mode === 'mc');
+    $('#mTC').classList.toggle('on', mode === 'tc');
+  }
+  syncModeBtns();
+
+  function setMode(next) {
+    if (next === mode) return;
+    const { cc, mc, tc } = coursesAt(mode, value);
+    mode = next;
+    value = Math.round(next === 'cc' ? cc : next === 'mc' ? mc : tc) % 360;
+    syncModeBtns();
+    render();
+  }
+  $('#mCC').onclick = () => setMode('cc');
+  $('#mMC').onclick = () => setMode('mc');
+  $('#mTC').onclick = () => setMode('tc');
 
   function render() {
-    const cc = cursorCC(), mc = mode === 'cc2mc' ? F.toMC(value) : value;
-    $('#inLbl').textContent  = mode === 'cc2mc' ? 'Compass course' : 'Magnetic course';
-    $('#outLbl').textContent = mode === 'cc2mc' ? 'Magnetic course' : 'Steer compass';
-    $('#inVal').textContent  = fmt3(value);
-    $('#outVal').textContent = fmt3(mode === 'cc2mc' ? mc : cc);
-    const dev = F.dev(cc), ce = VAR + dev;
-    $('#devVal').textContent = fmtDev(dev);
-    $('#tcVal').textContent  = fmt3(mc + VAR);
-    $('#varTxt').textContent = `True · Var ${fmtDev(VAR)} · Error ${fmtDev(ce)}`;
-    [...$('#table').children].forEach((el, i) => el.classList.toggle('on', mode === 'cc2mc' && S.H[i] === value));
-    Mock.drawCurve($('#chart'), { fit: F, title: true, cursor: cc, sets: [{ pts: S.H.map((h, i) => [h, S.avg[i]]) }] });
+    const { cc, mc, tc } = coursesAt(mode, value);
+    const dev = F.dev(cc), ce = dev + VAR;
+    $('#inSideLbl').textContent = mode === 'cc' ? 'COMPASS' : mode === 'mc' ? 'MAGNETIC' : 'TRUE';
+    $('#magNum').textContent = String(Math.round(norm(value))).padStart(3, '0') + '°';
+    $('#magUnit').textContent = mode === 'cc' ? 'C' : mode === 'mc' ? 'M' : 'T';
+
+    $('#devAmb').classList.toggle('show', !varOpen);
+    $('#varAmbVal').textContent = fmtSigned(VAR);
+    $('#cogCtrl').classList.toggle('open', varOpen);
+    $('#cogCtrl').inert = !varOpen;
+    $('#varVal').textContent = fmtSigned(VAR);
+
+    if (mode === 'cc') {
+      $('#out1Lbl').textContent = 'Magnetic';      $('#out1Val').textContent = `${fmt3(mc)}M`;
+      $('#out2Lbl').textContent = 'True';          $('#out2Val').textContent = `${fmt3(tc)}T`;
+    } else if (mode === 'mc') {
+      $('#out1Lbl').textContent = 'Steer compass'; $('#out1Val').textContent = `${fmt3(cc)}C`;
+      $('#out2Lbl').textContent = 'True';          $('#out2Val').textContent = `${fmt3(tc)}T`;
+    } else {
+      $('#out1Lbl').textContent = 'Steer compass'; $('#out1Val').textContent = `${fmt3(cc)}C`;
+      $('#out2Lbl').textContent = 'Magnetic';      $('#out2Val').textContent = `${fmt3(mc)}M`;
+    }
+    $('#out3Val').textContent = `${fmtSigned(dev)} / ${fmtSigned(ce)}`;
+
+    const ccR = Math.round(norm(cc)) % 360;
+    [...$('#table').children].forEach((el, i) => el.classList.toggle('on', S.H[i] === ccR));
+
+    Mock.drawCurve($('#chart'), {
+      fit: F, title: false, cursor: cc, readout: true, pinned: true,
+      activeHeading: S.H.includes(ccR) ? ccR : null,
+      sets: [{ pts: S.H.map((h, i) => [h, S.avg[i]]), color: '--pt', shape: 'rose', size: 6.5 }]
+    });
     tape.draw();
   }
-  function setMode(m) {
-    if (m === mode) return;
-    value = Math.round(m === 'mc2cc' ? F.toMC(value) : F.toCC(value)) % 360; mode = m;
-    $('#mCC').classList.toggle('on', m === 'cc2mc'); $('#mMC').classList.toggle('on', m === 'mc2cc');
-  }
-  $('#mCC').onclick = () => { setMode('cc2mc'); render(); };
-  $('#mMC').onclick = () => { setMode('mc2cc'); render(); };
-  $('#tc').onclick  = () => { VAR = VAR >= 10 ? -10 : VAR + 1; render(); };
+
+  document.addEventListener('pointerdown', e => {
+    if (!varOpen) return;
+    if ($('#cogCtrl').contains(e.target)) return;
+    varOpen = false; render();
+  }, true);
+  $('#devAmb').onclick = () => { varOpen = true; render(); };
+  $('#varAuto').onclick = () => { detectVariation(v => { VAR = v; render(); }); };
+  const stepVar = d => { VAR = Math.max(-30, Math.min(30, VAR + d)); render(); };
+  $('#vm').onclick = () => stepVar(-1);
+  $('#vp').onclick = () => stepVar(1);
+
   Mock.stepper($('#minus'), () => { value = norm(value - 1); render(); });
   Mock.stepper($('#plus'),  () => { value = norm(value + 1); render(); });
 
-  /* Share without a backend: readable text for a chat message + self-contained URL hash import link. */
+  const cv = $('#chart');
+  let chartDrag = false;
+  const pickChart = e => {
+    const b = cv._plotBounds, r = cv.getBoundingClientRect();
+    if (!b || !b.pw) return;
+    const cc = Math.max(0, Math.min(360, Math.round(((e.clientX - r.left - b.padL) / b.pw) * 360)));
+    mode = 'cc'; value = cc % 360; syncModeBtns(); render();
+  };
+  cv.addEventListener('pointerdown', e => { chartDrag = true; cv.setPointerCapture(e.pointerId); pickChart(e); });
+  cv.addEventListener('pointermove', e => { if (chartDrag) pickChart(e); });
+  ['pointerup', 'pointercancel'].forEach(ev => cv.addEventListener(ev, () => { chartDrag = false; }));
+
   $('#share').onclick = async () => {
-    const hash = `#t=v1&b=${encodeURIComponent(S.boat)}&d=${S.date}&n=${S.H.length}&dev=${S.avg.join(',')}`;
+    const label = curTitle || fmtTime(S.createdAt || S.date, { utc: false, sec: true });
+    const hash = `#t=v1&title=${encodeURIComponent(label)}&d=${S.date}&n=${S.H.length}&dev=${S.avg.join(',')}`;
     const url = `https://deviator.navigart.net/${hash}`;
-    const text = `${S.boat} deviation table, ${S.date}\n` +
+    const text = `${label} · deviation table${curTitle && S.date ? ' (' + S.date + ')' : ''}\n` +
       S.H.map((h, i) => `${String(h).padStart(3, '0')}: ${fmtDev(S.avg[i])}`).join('\n') + `\n${url}`;
     try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { return; }
     try { await navigator.clipboard.writeText(text); } catch (e) {}

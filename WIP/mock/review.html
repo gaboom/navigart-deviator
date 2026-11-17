@@ -7,49 +7,174 @@
 <link rel="stylesheet" href="shared.css">
 <link rel="icon" type="image/svg+xml" href="https://navigart.net/logo.svg">
 <style>
-  .app { grid-template-columns:1fr; grid-template-rows:minmax(130px,1.3fr) 2.5fr auto auto; }
+  .app { grid-template-columns:1fr; grid-template-rows:minmax(165px,1.95fr) 1.75fr auto auto auto; }
   #chartT { padding:0; }
-  #chartT .k { position:absolute; left:clamp(8px,2.2cqmin,18px); top:clamp(6px,1.5cqmin,12px); z-index:1; }
+  #chart { cursor:crosshair; touch-action:pan-y; }
   #rows { display:grid; gap:var(--gap); min-height:0; }
-  .row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; align-items:center; gap:var(--gap); padding:0 clamp(8px,2.2cqmin,18px);
-         background:var(--tile); font-variant-numeric:tabular-nums; font-size:clamp(13px,3.8cqmin,22px); min-height:0; }
-  .row.head { background:var(--tile2); font-size:clamp(10px,2.4cqmin,14px); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .row { display:grid; grid-template-columns:.9fr 1fr .6fr 1fr 1.25fr; align-items:center; gap:clamp(4px,1.2cqw,8px); padding:0 clamp(10px,3cqw,18px);
+         background:var(--tile); font-variant-numeric:tabular-nums; font-size:clamp(12px,3.1cqmin,18px); min-height:0; border:0; text-align:left; font-family:inherit; color:var(--fg); transition:background .08s; }
+  .row > span:nth-child(2), .row > span:nth-child(3), .row > span:nth-child(4) { text-align:center; }
+  .row > span:nth-child(5), .row > b:nth-child(5) { text-align:right; }
+  .row.head { background:var(--tile2); font-size:clamp(8.5px,2.15cqw,12px); letter-spacing:.08em; line-height:1; text-transform:uppercase; color:var(--muted); font-weight:600; white-space:nowrap; height:clamp(22px,3.2cqh,28px); }
+  .row.subhead { grid-template-columns:1fr; justify-items:center; }
   .row b { font-weight:600; } .s { color:var(--stbd); } .p { color:var(--port); } .off { opacity:.35; }
-  a.row { color:var(--fg); }
-  #save { justify-content:flex-end; min-height:clamp(60px,10cqh,96px); }
-  #abort { justify-content:center; min-height:clamp(44px,7cqh,68px); }
+  .row .delta { color:var(--muted); opacity:.28; font-size:.86em; transition:opacity .08s, color .08s; }
+  button.row { cursor:pointer; }
+  button.row.active { background:var(--tile2); box-shadow:inset 5px 0 0 var(--fg); font-weight:600; }
+  button.row.active .delta { opacity:1; color:var(--fg); font-weight:600; }
+  button.row:active { filter:brightness(.94); }
+
+  .action-row { display:grid; gap:var(--gap); }
+  #dirBar { grid-template-columns:1fr 1fr; }
+  #navBar { grid-template-columns:1fr 2fr; }
+  #dirBar .t { min-height:clamp(40px,6cqh,54px); padding:clamp(6px,1.5cqmin,10px) clamp(10px,2.4cqw,16px); align-items:center; justify-content:center; text-align:center; }
+  #navBar .t { min-height:clamp(48px,7.6cqh,68px); padding:clamp(8px,2cqmin,14px) clamp(10px,2.4cqw,16px); align-items:center; justify-content:center; text-align:center; }
+  .action-row .btn { font-size:clamp(13px,3.6cqw,20px); font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:.38em; }
+  #save .btn { font-size:clamp(11px,3.05cqw,17px); letter-spacing:.02em; }
+  .re-hold:active { filter:none; }
+  .re-hold::before { background:rgba(0,80,200,.24); z-index:1; }
+  body.night .re-hold::before { background:rgba(255,90,77,.28); }
 </style>
 </head>
 <body>
 <div class="app" id="app">
-  <div class="t" id="chartT"><div class="k">Review · ▶ starboard  ◀ port</div><canvas id="chart"></canvas></div>
+  <div class="t" id="chartT"><canvas id="chart"></canvas></div>
   <div id="rows"></div>
-  <a class="t acc" id="save"><div class="k">Approve</div><div class="v md">SAVE ▶</div></a>
-  <a class="t alt" id="abort"><div class="k">Discard</div><div class="btn">ABORT</div></a>
+  <div class="row head subhead">HOLD · MEASURE AGAIN</div>
+  <div class="action-row" id="dirBar">
+    <button class="t re-hold" id="rePort" type="button"><div class="btn"></div></button>
+    <button class="t re-hold" id="reStbd" type="button"><div class="btn"></div></button>
+  </div>
+  <div class="action-row" id="navBar">
+    <button class="t alt abort-hold" id="abort" type="button"><div class="btn">ABORT</div></button>
+    <button class="t acc" id="save" type="button"><div class="btn">SAVE TO DEVIATION TABLES</div></button>
+  </div>
 </div>
 <script src="shared.js"></script>
 <script>
-  const { $, link, params, fmt3, fmtDev } = Mock;
+  const { $, norm, link, params, fmt3, fmtDev, hold } = Mock;
   const p = params(), S = Mock.sample(p);
   const { H, stbd, port, avg, hasS, hasP, modeFor, fit: F } = S;
+  const step = 360 / H.length;
   const cell = (v, on, cls, dim) => on ? `<span class="${cls}${dim ? ' off' : ''}">${fmtDev(v)}</span>` : `<span class="off">—</span>`;
 
   $('#rows').style.gridTemplateRows = `auto repeat(${H.length}, 1fr)`;
-  $('#rows').innerHTML = `<div class="row head"><span>Steer</span><span>▶ Stbd</span><span>◀ Port</span><span>Result</span></div>` +
+  $('#rows').innerHTML = `<div class="row head"><span>Steer</span><span><span class="p">◀</span> Port</span><span>Δ</span><span><span class="s">▶</span> Stbd</span><span>Deviation</span></div>` +
     H.map((h, i) => {
       const m = modeFor(h);
-      return `<a class="row" href="${link('review-heading.html', { h })}">
-        <b>${fmt3(h)}</b>${cell(stbd[i], hasS, 's', m === 'port')}${cell(port[i], hasP, 'p', m === 'stbd')}<b>${fmtDev(avg[i])}</b></a>`;
+      const dTxt = hasS && hasP ? `${Math.round(Math.abs(port[i] - stbd[i]))}°` : '—';
+      return `<button type="button" class="row" data-idx="${i}">
+        <b>${fmt3(h)}</b>${cell(port[i], hasP, 'p', m === 'stbd')}<span class="delta">${dTxt}</span>${cell(stbd[i], hasS, 's', m === 'port')}<b>${fmtDev(avg[i])}</b></button>`;
     }).join('');
-  $('#abort').href = link('confirm.html', { what: 'measurement', back: link('review.html'), done: 'start.html' });
-  $('#save').href = link('save.html');
+
+  const curRounds = hasS && hasP ? 2 : 1;
+  const portRound = hasP ? (p.dir === 'port' ? 1 : 2) : 2;
+  const stbdRound = hasS ? (p.dir === 'stbd' ? 1 : 2) : 2;
+
+  $('#rePort .btn').innerHTML = `<span class="p">◀</span> PORT`;
+  $('#reStbd .btn').innerHTML = `STARBOARD <span class="s">▶</span>`;
+
+  const cv = $('#chart'), rowEls = [...document.querySelectorAll('#rows button.row')];
+  const snapHeading = rawDeg => {
+    const c = Math.max(0, Math.min(360, rawDeg));
+    let bestIdx = 0, bestDist = Infinity;
+    H.forEach((h, i) => {
+      const d = Math.abs(((c - h + 540) % 360) - 180);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    const isSnapped = bestDist <= Math.min(8, step * 0.22);
+    const snapped = isSnapped ? (c > 350 && H[bestIdx] === 0 ? 360 : H[bestIdx]) : Math.round(c);
+    return { c: snapped, activeIdx: isSnapped ? bestIdx : null };
+  };
+  const qRaw = new URLSearchParams(location.search);
+  let hover = null;
+  let pinned = qRaw.has('cursor') ? snapHeading(+qRaw.get('cursor')) : null;
+  const currentState = () => pinned || hover;
 
   function draw() {
-    Mock.drawCurve($('#chart'), { fit: F, title: true, sets: [
-      ...(hasS ? [{ pts: H.filter(h => modeFor(h) !== 'port').map(h => [h, stbd[H.indexOf(h)]]), color: '--stbd', shape: 'tri-r', size: 6 }] : []),
-      ...(hasP ? [{ pts: H.filter(h => modeFor(h) !== 'stbd').map(h => [h, port[H.indexOf(h)]]), color: '--port', shape: 'tri-l', size: 6 }] : [])
-    ] });
+    const st = currentState();
+    rowEls.forEach((el, i) => el.classList.toggle('active', st != null && st.activeIdx === i));
+    const sets = [];
+    if (hasP) sets.push({ pts: H.filter(h => modeFor(h) !== 'stbd').map(h => [h, port[H.indexOf(h)]]), color: '--port', shape: 'rose', size: 7.5 });
+    if (hasS) sets.push({ pts: H.filter(h => modeFor(h) !== 'port').map(h => [h, stbd[H.indexOf(h)]]), color: '--stbd', shape: 'rose', size: 7.5 });
+    const diffLinks = hasS && hasP ? H.map((h, i) => ({ h, d1: port[i], d2: stbd[i] })) : [];
+    Mock.drawCurve(cv, {
+      fit: F, title: false, overlapColor: '--ovl', diffLinks, sets,
+      activeHeading: st && st.activeIdx != null ? H[st.activeIdx] : null,
+      cursor: st ? st.c : null, readout: st != null, pinned: pinned != null
+    });
   }
+
+  const lastHeading = qRaw.has('last')
+    ? norm(+qRaw.get('last'))
+    : norm(p.start + (p.dir === 'stbd' ? 1 : -1) * (H.length - 1) * step);
+
+  const goMeasure = (isMeasured, roundNum) => {
+    const st = currentState();
+    const rem = isMeasured && st && st.activeIdx != null ? H[st.activeIdx] : null;
+    location.href = link('measure.html', {
+      round: roundNum,
+      rounds: isMeasured ? curRounds : 1,
+      remeasure: rem,
+      at: rem === null ? lastHeading : null,
+      from: 'review'
+    });
+  };
+  hold($('#rePort'), Mock.HOLD_MS, () => goMeasure(hasP, portRound));
+  hold($('#reStbd'), Mock.HOLD_MS, () => goMeasure(hasS, stbdRound));
+  hold($('#abort'), Mock.HOLD_MS, () => { location.href = 'start.html'; });
+  $('#save').onclick = () => {
+    const entry = Mock.saveNewTable({ n: H.length, dev: avg });
+    location.href = `deviation-table.html?id=${encodeURIComponent(entry.id)}`;
+  };
+
+  rowEls.forEach((el, i) => {
+    el.addEventListener('pointerenter', e => {
+      if (e.pointerType !== 'mouse' || pinned) return;
+      hover = { c: H[i], activeIdx: i };
+      draw();
+    });
+    el.addEventListener('click', () => {
+      if (pinned && pinned.activeIdx === i) {
+        pinned = null;
+        hover = null;
+      } else {
+        pinned = { c: H[i], activeIdx: i };
+      }
+      draw();
+    });
+  });
+  $('#rows').addEventListener('pointerleave', () => {
+    if (pinned) return;
+    hover = null;
+    draw();
+  });
+
+  const hitChart = e => {
+    const b = cv._plotBounds, r = cv.getBoundingClientRect();
+    if (!b || !b.pw) return null;
+    return snapHeading(((e.clientX - r.left - b.padL) / b.pw) * 360);
+  };
+  cv.addEventListener('pointermove', e => {
+    if (pinned) return;
+    hover = hitChart(e);
+    draw();
+  });
+  cv.addEventListener('pointerleave', () => {
+    if (pinned) return;
+    hover = null;
+    draw();
+  });
+  cv.addEventListener('click', e => {
+    if (pinned) {
+      pinned = null;
+      hover = e.pointerType === 'mouse' ? hitChart(e) : null;
+    } else {
+      pinned = hitChart(e);
+    }
+    draw();
+  });
+
   new ResizeObserver(draw).observe(document.body); draw();
 </script>
 </body>

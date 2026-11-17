@@ -78,9 +78,14 @@
 </div>
 <script src="shared.js"></script>
 <script>
-  /* Saved tables only appear once at least one exists; the mock always has samples. */
-  const hasSaved = true;
-  if (!hasSaved) { document.getElementById('saved').remove(); document.getElementById('app').style.gridTemplateAreas = '"brand brand" "start start" "settings settings"'; }
+  /* Saved tables only appear once at least one exists (starts empty). */
+  const tables = Mock.loadTables();
+  if (!tables.length) {
+    document.getElementById('saved').remove();
+    document.getElementById('app').style.gridTemplateAreas = '"brand brand" "start start" "settings settings"';
+  } else {
+    document.querySelector('#saved .k').textContent = `Open saved · ${tables.length}`;
+  }
 </script>
 </body>
 </html>

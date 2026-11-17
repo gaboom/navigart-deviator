@@ -5,14 +5,129 @@
   const RAD  = Math.PI / 180;
   const norm = d => ((d % 360) + 360) % 360;
   const fmt3 = d => String(Math.round(norm(d)) % 360).padStart(3, '0') + '°';
-  const fmtDev = d => { const r = Math.round(d); return r === 0 ? '0°' : Math.abs(r) + '°' + (r > 0 ? 'E' : 'W'); };
+  const roundDev = d => {
+    if (!Number.isFinite(d) || d === 0) return 0;
+    const r = Math.sign(d) * Math.round(Math.abs(d));
+    return r === 0 ? 0 : r;
+  };
+  const fmtDev = d => { const r = roundDev(d); return r === 0 ? '0°' : Math.abs(r) + '°' + (r > 0 ? 'E' : 'W'); };
   const $ = (s, r) => (r || document).querySelector(s);
   const css = k => getComputedStyle(document.body).getPropertyValue(k).trim();
   const accent = () => document.body.classList.contains('night') ? css('--fg') : css('--acc');
 
   /* ---------- Flow state carried in the URL (mock stand-in for the app state) ---------- */
-  const KEEP = ['n', 'start', 'dir', 'ref', 'var', 'round', 'rounds', 'boat', 'date', 'use'];
+  const KEEP = ['n', 'start', 'dir', 'ref', 'var', 'round', 'rounds', 'id', 'title', 'date', 'use', 'stbd', 'port', 'last'];
+  const TABLES_KEY = 'deviator.tables';
   const raw  = new URLSearchParams(location.search);
+  const pad2 = x => String(x).padStart(2, '0');
+  function nowUtc(d) {
+    return (d || new Date()).toISOString().slice(0, 19) + 'Z';
+  }
+  function fmtTime(iso, opts) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const utc = !!(opts && opts.utc), sec = !!(opts && opts.sec);
+    if (utc) {
+      const hm = `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+      return (sec ? `${hm}:${pad2(d.getUTCSeconds())}` : hm) + 'Z';
+    }
+    const offMin = -d.getTimezoneOffset(), sign = offMin >= 0 ? '+' : '-', abs = Math.abs(offMin);
+    const tz = `${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`;
+    const hm = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    return (sec ? `${hm}:${pad2(d.getSeconds())}` : hm) + tz;
+  }
+  const fmtLocal = (iso, withSec) => fmtTime(iso, { sec: withSec });
+  function loadTables() {
+    try { const a = JSON.parse(localStorage.getItem(TABLES_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function saveTables(list) { localStorage.setItem(TABLES_KEY, JSON.stringify(list)); }
+  function saveNewTable({ n, dev, title }) {
+    const stamp = nowUtc(), date = stamp.slice(0, 10);
+    const entry = {
+      id: `${date}-${Date.now().toString(36)}`,
+      title: (title || '').trim(),
+      createdAt: stamp,
+      n,
+      dev: dev.map(v => Math.round(v * 2) / 2)
+    };
+    const list = loadTables();
+    list.unshift(entry);
+    saveTables(list);
+    return entry;
+  }
+  const TYPE_EXAMPLES = [
+    'Main navigation compass',
+    'Hand bearing compass',
+    'Chart table compass',
+    'Gyrocompass heading',
+    'iPad',
+    'Smart watch'
+  ];
+  function applyTypeExample(curVal, example) {
+    const trimmed = (curVal || '').trim();
+    if (!trimmed || TYPE_EXAMPLES.includes(trimmed)) return example;
+    const base = trimmed.split(' · ')[0].trim();
+    return base ? `${base} · ${example}` : example;
+  }
+  function updateTableTitle(id, nextTitle) {
+    if (!id) return null;
+    const list = loadTables();
+    const idx = list.findIndex(x => x.id === id);
+    if (idx < 0) return null;
+    list[idx] = { ...list[idx], title: (nextTitle || '').trim() };
+    saveTables(list);
+    return list[idx];
+  }
+  const fmtSigned = d => {
+    const r = Math.round(d);
+    return r === 0 ? '0°' : (r > 0 ? '+' : '−') + Math.abs(r) + '°';
+  };
+  function renderTapeMarks(box, b, showTrue) {
+    if (!box) return;
+    const show = b && (showTrue ? b.visible : b.devVisible);
+    if (!show) { box.classList.remove('show'); return; }
+    const rawMarks = [];
+    if (b.pCc && b.pCc.onTape) rawMarks.push({ label: 'CC', x: b.pCc.x, isMc: false });
+    if (b.pMc && b.pMc.onTape) rawMarks.push({ label: 'MC', x: b.pMc.x, isMc: true });
+    if (showTrue && b.pTc && b.pTc.onTape) rawMarks.push({ label: 'TC', x: b.pTc.x, isMc: false });
+    if (!rawMarks.length) { box.classList.remove('show'); return; }
+    rawMarks.sort((a, c) => a.x - c.x);
+    const groups = [];
+    rawMarks.forEach(m => {
+      const last = groups[groups.length - 1];
+      if (last && Math.abs(m.x - last.x) < 4) {
+        last.labels.push(m.label);
+        last.x = (last.x * (last.labels.length - 1) + m.x) / last.labels.length;
+        last.isMc = last.isMc || m.isMc;
+      } else {
+        groups.push({ labels: [m.label], x: m.x, isMc: m.isMc });
+      }
+    });
+    const minSep = 17;
+    for (let pass = 0; pass < 4; pass++) {
+      for (let i = 1; i < groups.length; i++) {
+        const d = groups[i].x - groups[i - 1].x;
+        if (d < minSep) {
+          const push = (minSep - d) / 2;
+          groups[i - 1].x -= push;
+          groups[i].x += push;
+        }
+      }
+    }
+    const slots = [$('#tmCc'), $('#tmMc'), $('#tmTc')];
+    slots.forEach((el, i) => {
+      if (!el) return;
+      const gr = groups[i];
+      if (!gr) { el.style.display = 'none'; return; }
+      el.style.display = '';
+      el.innerHTML = gr.labels.map(lbl => `<span class="${lbl === 'MC' ? 'tm-mc' : ''}">${lbl}</span>`).join('');
+      el.className = 'tape-mark' + (gr.isMc ? ' mc' : '');
+      el.style.left = `${gr.x}px`;
+    });
+    box.classList.add('show');
+  }
   function params() {
     const g = (k, d) => raw.has(k) ? raw.get(k) : d;
     const use = {};
@@ -20,7 +135,7 @@
     return {
       n: +g('n', 8), start: +g('start', 0), dir: g('dir', 'stbd'),
       ref: g('ref', 'T'), var: +g('var', 4), round: +g('round', 1), rounds: +g('rounds', 2),
-      boat: g('boat', 'Kittiwake'), date: g('date', '2026-10-09'), use,
+      id: g('id', ''), title: g('title', ''), date: g('date', '2026-10-09'), use,
       remeasure: raw.has('remeasure') ? +raw.get('remeasure') : null
     };
   }
@@ -91,7 +206,7 @@
 
   /* ---------- Sample measurement (East = +). Starboard round and port round differ by turning lag ---------- */
   const SAMPLE = {
-    boat: 'Kittiwake', date: '2026-10-09',
+    title: 'Kittiwake · Main navigation compass', date: '2026-10-09',
     H:    [0, 45, 90, 135, 180, 225, 270, 315],
     stbd: [-2.0, 1.5, 4.0, 2.5, 0.0, -3.0, -4.5, -4.0],
     port: [-1.0, 2.5, 5.0, 3.5, 1.0, -2.0, -3.5, -3.0]
@@ -99,24 +214,40 @@
   SAMPLE.avg = SAMPLE.stbd.map((d, i) => (d + SAMPLE.port[i]) / 2);
   SAMPLE.fit = fit(SAMPLE.H, SAMPLE.avg);
 
-  /* Build a sample dataset matching the requested precision n, rounds, and per-heading selection */
+  /* Build a sample or stored dataset matching the requested id, precision n, rounds, and per-heading selection */
   function sample(p) {
-    const P = p || params(), n = [4, 6, 8, 10, 12].includes(P.n) ? P.n : 8;
+    const P = p || params();
+    const stored = P.id ? loadTables().find(t => t.id === P.id) : null;
+    if (stored) {
+      const H = Array.from({ length: stored.n }, (_, i) => Math.round(i * 360 / stored.n));
+      const cr = stored.createdAt || stored.date;
+      return { id: stored.id, title: stored.title || '', displayTitle: stored.title || fmtLocal(cr, true), createdAt: cr, date: cr ? cr.slice(0, 10) : '', H, stbd: stored.dev.slice(), port: stored.dev.slice(), avg: stored.dev.slice(), rounded: stored.dev.map(roundDev), hasS: true, hasP: true, modeFor: () => 'both', fit: fit(H, stored.dev) };
+    }
+    const n = [4, 6, 8, 10, 12].includes(P.n) ? P.n : 8;
     const hasS = P.rounds === 2 || P.dir === 'stbd', hasP = P.rounds === 2 || P.dir === 'port';
     const H = Array.from({ length: n }, (_, i) => Math.round(i * 360 / n));
-    const stbd = n === 8 ? SAMPLE.stbd.slice() : H.map(h => Math.round((SAMPLE.fit.dev(h) - 0.5) * 2) / 2);
-    const port = n === 8 ? SAMPLE.port.slice() : H.map(h => Math.round((SAMPLE.fit.dev(h) + 0.5) * 2) / 2);
+    const arr = k => {
+      if (!raw.has(k)) return null;
+      const a = raw.get(k).split(',').map(Number);
+      return a.length === n && a.every(Number.isFinite) ? a : null;
+    };
+    const defOutlier = here() === 'review.html' && n === 8 && hasS && hasP;
+    const stbd = arr('stbd') || (defOutlier ? [-2, 2, 1, 3, -3, -9, -4, -4] : n === 8 ? SAMPLE.stbd.slice() : H.map(h => Math.round((SAMPLE.fit.dev(h) - 0.5) * 2) / 2));
+    const port = arr('port') || (defOutlier ? [-1, 2, 7, 3,  2,  3, -3, -2] : n === 8 ? SAMPLE.port.slice() : H.map(h => Math.round((SAMPLE.fit.dev(h) + 0.5) * 2) / 2));
     const modeFor = h => {
       const u = P.use && P.use[h];
       if (u === 'stbd' && hasS) return 'stbd';
       if (u === 'port' && hasP) return 'port';
       return hasS && hasP ? 'both' : hasS ? 'stbd' : 'port';
     };
-    const avg = H.map((h, i) => {
+    const exactAvg = H.map((h, i) => {
       const m = modeFor(h);
-      return m === 'stbd' ? stbd[i] : m === 'port' ? port[i] : (stbd[i] + port[i]) / 2;
+      return m === 'stbd' ? stbd[i] : m === 'port' ? port[i] : Math.round(((stbd[i] + port[i]) / 2) * 2) / 2;
     });
-    return { boat: P.boat || SAMPLE.boat, date: P.date || SAMPLE.date, H, stbd, port, avg, hasS, hasP, modeFor, fit: fit(H, avg) };
+    const rounded = exactAvg.map(roundDev);
+    const avg = exactAvg;
+    const t = raw.has('title') ? P.title : SAMPLE.title, cr = raw.get('createdAt') || '';
+    return { title: t, displayTitle: t || fmtLocal(cr || P.date, true), createdAt: cr, date: P.date || SAMPLE.date, H, stbd, port, avg, rounded, hasS, hasP, modeFor, fit: fit(H, avg) };
   }
 
   /* ---------- Canvas helper ---------- */
@@ -165,11 +296,12 @@
       };
       let band = { visible: false, devVisible: false, varVisible: false, w, mid };
       if (typeof getAnchor === 'function') {
-        const refObj = getAnchor();
+        const refObj = getAnchor(vFloat);
         const ccVal = (refObj && typeof refObj === 'object') ? refObj.cc : refObj;
         const varDeg = (refObj && typeof refObj === 'object' && refObj.varDeg) ? refObj.varDeg : 0;
         const isTrue = !!(refObj && typeof refObj === 'object' && refObj.isTrue);
-        const mcVal = vFloat - varDeg, tcVal = isTrue ? vFloat : null;
+        const mcVal = (refObj && refObj.mc != null) ? refObj.mc : vFloat - varDeg;
+        const tcVal = isTrue ? ((refObj && refObj.tc != null) ? refObj.tc : vFloat) : null;
         const hasDev = Math.abs(wrapDiff(mcVal, ccVal)) > 0.01;
         const hasVar = isTrue && Math.abs(wrapDiff(tcVal, mcVal)) > 0.01;
         const pCc = degPos(ccVal), pMc = degPos(mcVal), pTc = isTrue ? degPos(tcVal) : null;
@@ -318,6 +450,21 @@
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => btn.addEventListener(t, stop));
   }
 
+  /* TODO: replace/refine generated 8-wind compass rose icon if custom vector asset is preferred */
+  function rosePts(cx, cy, r) {
+    const pts = [];
+    for (let i = 0; i < 16; i++) {
+      const a = i * Math.PI / 8 - Math.PI / 2;
+      const rad = (i % 4 === 0 ? 1 : i % 4 === 2 ? 0.62 : 0.28) * r;
+      pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]);
+    }
+    return pts;
+  }
+  function roseSvg(cls) {
+    const pts = rosePts(12, 12, 11).map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
+    return `<svg class="rose${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true"><polygon points="${pts}" fill="currentColor"/><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg>`;
+  }
+
   /* ---------- Cartesian curve: heading across, deviation up/down ---------- */
   function drawCurve(cv, o) {
     const [g, w, h] = prep(cv);
@@ -329,6 +476,7 @@
     (o.sets || []).forEach(S => S.pts.forEach(p => m = Math.max(m, Math.abs(p[1]))));
     m = Math.max(5, Math.ceil(m + 1));
     const X = c => padL + c / 360 * pw, Y = d => padT + ph / 2 - d / m * (ph / 2);
+    cv._plotBounds = { padL, pw, padT, ph };
 
     g.font = `${fs}px "Segoe UI", system-ui, sans-serif`; g.textBaseline = 'middle';
     g.strokeStyle = css('--line'); g.lineWidth = 1; g.fillStyle = css('--muted');
@@ -344,40 +492,125 @@
     g.strokeStyle = css('--muted'); g.lineWidth = 1.5 * s;
     g.beginPath(); g.moveTo(X(0), Y(0)); g.lineTo(X(360), Y(0)); g.stroke();
 
+    if (o.diffLinks) {
+      const night = document.body.classList.contains('night');
+      o.diffLinks.forEach(({ h: hd, d1, d2 }) => {
+        if (Math.abs(d1 - d2) <= 5) return;
+        g.strokeStyle = night ? 'rgba(255,160,60,.85)' : 'rgba(217,119,6,.82)';
+        g.lineWidth = 2 * s;
+        (hd === 0 ? [0, 360] : [hd]).forEach(cc => {
+          g.beginPath(); g.moveTo(X(cc), Y(d1)); g.lineTo(X(cc), Y(d2)); g.stroke();
+        });
+      });
+    }
+
+    if (o.activeHeading != null) {
+      const ah = norm(o.activeHeading);
+      g.strokeStyle = css('--muted'); g.lineWidth = 1.2 * s; g.setLineDash([4 * s, 3 * s]);
+      (ah === 0 ? [0, 360] : [ah]).forEach(cc => {
+        g.beginPath(); g.moveTo(X(cc), padT); g.lineTo(X(cc), padT + ph); g.stroke();
+      });
+      g.setLineDash([]);
+    }
+
     g.strokeStyle = css('--curve'); g.lineWidth = 3 * s; g.beginPath();
     for (let c = 0; c <= 360; c++) { const x = X(c), y = Y(o.fit.dev(c)); c ? g.lineTo(x, y) : g.moveTo(x, y); }
     g.stroke();
 
-    (o.sets || []).forEach(S => {
-      g.fillStyle = css(S.color || '--pt');
-      const r = (S.size || 5) * s;
+    const drawRose = (x, y, r, color) => {
+      g.fillStyle = color;
+      g.beginPath();
+      rosePts(x, y, r).forEach(([px, py], idx) => idx ? g.lineTo(px, py) : g.moveTo(px, py));
+      g.closePath();
+      g.fill();
+      g.beginPath();
+      g.arc(x, y, 0.31 * r, 0, Math.PI * 2);
+      g.fill();
+    };
+    const drawMarker = (x, y, r, shape, color, hi) => {
+      const rad = hi ? r * 1.32 : r;
+      if (hi) {
+        const halo = document.body.classList.contains('night') ? 'rgba(255,140,120,.44)' : 'rgba(17,17,17,.30)';
+        if (shape === 'rose') {
+          drawRose(x, y, r * 2.15, halo);
+        } else {
+          g.fillStyle = halo; g.beginPath(); g.arc(x, y, rad + 5 * s, 0, Math.PI * 2); g.fill();
+        }
+      }
+      if (shape === 'rose') { drawRose(x, y, rad, color); return; }
+      g.fillStyle = color;
+      g.beginPath();
+      if (shape === 'tri-r')      { g.moveTo(x - rad, y - rad); g.lineTo(x + rad, y); g.lineTo(x - rad, y + rad); g.closePath(); }
+      else if (shape === 'tri-l') { g.moveTo(x + rad, y - rad); g.lineTo(x - rad, y); g.lineTo(x + rad, y + rad); g.closePath(); }
+      else                        { g.arc(x, y, rad, 0, Math.PI * 2); }
+      g.fill();
+    };
+
+    const isActive = c => o.activeHeading != null && norm(c) === norm(o.activeHeading);
+    const sets = o.sets || [];
+    const overlapKeys = new Map();
+    if (sets.length > 1) {
+      const seen = new Map();
+      sets.forEach((S, si) => S.pts.forEach(([c, d]) => {
+        const prev = seen.get(c);
+        if (prev && prev.si !== si && Math.abs(roundDev(prev.d) - roundDev(d)) <= 1) {
+          overlapKeys.set(c, (prev.d + d) / 2);
+        } else if (!prev) {
+          seen.set(c, { si, d });
+        }
+      }));
+    }
+
+    sets.forEach(S => {
+      const color = css(S.color || '--pt'), r = (S.size || 5) * s;
       S.pts.forEach(([c, d]) => {
-        (c === 0 ? [0, 360] : [c]).forEach(cc => {
-          const x = X(cc), y = Y(d);
-          g.beginPath();
-          if (S.shape === 'tri-r')      { g.moveTo(x - r, y - r); g.lineTo(x + r, y); g.lineTo(x - r, y + r); g.closePath(); }
-          else if (S.shape === 'tri-l') { g.moveTo(x + r, y - r); g.lineTo(x - r, y); g.lineTo(x + r, y + r); g.closePath(); }
-          else                          { g.arc(x, y, r, 0, Math.PI * 2); }
-          g.fill();
-        });
+        if (overlapKeys.has(c)) return;
+        const hi = isActive(c);
+        (c === 0 ? [0, 360] : [c]).forEach(cc => drawMarker(X(cc), Y(d), r, S.shape, color, hi));
       });
     });
 
+    if (overlapKeys.size) {
+      const ovlColor = css(o.overlapColor || '--ovl') || css('--acc');
+      const refSet = sets.find(S => S.shape === 'rose') || sets[0];
+      const r = ((refSet && refSet.size) || 7) * s;
+      const shape = (refSet && refSet.shape) || 'rose';
+      overlapKeys.forEach((d, c) => {
+        const hi = isActive(c);
+        (c === 0 ? [0, 360] : [c]).forEach(cc => drawMarker(X(cc), Y(d), r, shape, ovlColor, hi));
+      });
+    }
+
     if (o.cursor != null) {
-      const x = X(o.cursor), y = Y(o.fit.dev(o.cursor));
-      g.strokeStyle = accent(); g.lineWidth = 2 * s; g.setLineDash([6 * s, 4 * s]);
+      const x = X(o.cursor), devVal = o.fit.dev(o.cursor), y = Y(devVal);
+      g.strokeStyle = accent(); g.lineWidth = (o.readout ? 1.5 : 2) * s; g.setLineDash([6 * s, 4 * s]);
       g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ph); g.stroke(); g.setLineDash([]);
-      g.fillStyle = accent(); g.beginPath(); g.arc(x, y, 7 * s, 0, Math.PI * 2); g.fill();
+      g.fillStyle = accent(); g.beginPath(); g.arc(x, y, (o.readout ? 5 : 7) * s, 0, Math.PI * 2); g.fill();
+      if (o.readout) {
+        const dv = Math.abs(devVal) < 0.05 ? '0.0°' : Math.abs(devVal).toFixed(1) + '°' + (devVal > 0 ? 'E' : 'W');
+        const txt = `${fmt3(o.cursor)}  ${dv}`;
+        g.font = `600 ${Math.round(10.5 * s)}px "Segoe UI", system-ui, sans-serif`;
+        const tw = g.measureText(txt).width, px = 6 * s, bh = Math.round(17 * s), bw = tw + px * 2;
+        const bx = x + bw + 8 * s <= padL + pw ? x + 6 * s : Math.max(padL + 2, x - bw - 6 * s);
+        const by = Math.max(padT + 2, Math.min(padT + ph - bh - 2, y - bh - 6 * s));
+        g.fillStyle = o.pinned ? accent() : css('--fg');
+        g.fillRect(bx, by, bw, bh);
+        g.fillStyle = o.pinned ? css('--accfg') : css('--tile');
+        g.textAlign = 'left'; g.textBaseline = 'middle';
+        g.fillText(txt, bx + px, by + bh / 2);
+      }
     }
   }
 
   /* ---------- Hold-to-confirm: the fill grows while pressed, letting go cancels ---------- */
+  const HOLD_MS = 1200;
   function hold(el, ms, done, shouldHold) {
+    const dur = ms || HOLD_MS;
     let raf = null, t0 = 0, fired = false;
     const active = () => !shouldHold || shouldHold();
     const set = p => el.style.setProperty('--p', p);
     const tick = () => {
-      const p = Math.min(1, (performance.now() - t0) / ms); set(p);
+      const p = Math.min(1, (performance.now() - t0) / dur); set(p);
       if (p >= 1) { fired = true; raf = null; el.classList.remove('holding'); done(); } else raf = requestAnimationFrame(tick);
     };
     el.classList.add('hold');
@@ -397,22 +630,27 @@
     el.addEventListener('contextmenu', e => e.preventDefault());
   }
 
-  /* ---------- Measurement screen, shared by the "measure" and "measure-complete" states ---------- */
+  /* ---------- Measurement screen (active + all-measured FINISH state) ---------- */
   function measure(opts) {
-    const p = params(), remeasure = p.remeasure !== null, complete = !!(opts && opts.complete) || remeasure;
+    const p = params(), remeasure = p.remeasure !== null, complete = !!(opts && opts.complete) || raw.get('complete') === '1';
     const n = p.n, step = 360 / n;
     const dir = p.round === 2 ? (p.dir === 'stbd' ? 'port' : 'stbd') : p.dir;
     const sign = dir === 'stbd' ? 1 : -1;
     const steer = k => norm(p.start + sign * k * step);
     const headings = Array.from({ length: n }, (_, i) => steer(i));
-    let ref = p.ref, vr = p.var, k = remeasure ? Math.max(0, headings.indexOf(norm(p.remeasure))) : (complete ? n - 1 : 0);
+    let ref = p.ref, vr = p.var;
+    let k = remeasure ? Math.max(0, headings.indexOf(norm(p.remeasure)))
+                      : raw.has('at') ? Math.max(0, headings.indexOf(norm(+raw.get('at'))))
+                      : (complete ? n - 1 : 0);
     let ctrlOpen = raw.get('gnss') === '1', geoTried = false;
-    const measured = Array.from({ length: n }, () => complete);
+    const measured = Array.from({ length: n }, (_, i) => remeasure ? i !== k : complete);
     if (raw.get('gnss') === '1' || raw.get('meas') === '1') measured[k] = true;
     const F = SAMPLE.fit;
     const defCog = i => norm(steer(i) + (ref === 'T' ? vr : 0));
     const vals = Array.from({ length: n }, (_, i) =>
-      complete ? Math.round(norm(steer(i) + F.dev(steer(i)) + (ref === 'T' ? vr : 0))) : defCog(i));
+      (complete || (remeasure && i !== k))
+        ? Math.round(norm(steer(i) + F.dev(steer(i)) + (ref === 'T' ? vr : 0)))
+        : defCog(i));
     const syncUnmeasured = () => {
       for (let i = 0; i < n; i++) if (!measured[i]) vals[i] = defCog(i);
     };
@@ -480,59 +718,7 @@
         <a class="t alt" id="exit"></a>
       </div>`;
 
-    const updateMarks = b => {
-      const box = $('#tapeMarks');
-      if (!box) return;
-      const show = b && (ref === 'T' ? b.visible : b.devVisible);
-      if (!show) {
-        box.classList.remove('show');
-        return;
-      }
-      const rawMarks = [];
-      if (b.pCc.onTape) rawMarks.push({ label: 'CC', x: b.pCc.x, isMc: false });
-      if (b.pMc.onTape) rawMarks.push({ label: 'MC', x: b.pMc.x, isMc: true });
-      if (ref === 'T' && b.pTc && b.pTc.onTape) rawMarks.push({ label: 'TC', x: b.pTc.x, isMc: false });
-      if (!rawMarks.length) {
-        box.classList.remove('show');
-        return;
-      }
-      rawMarks.sort((a, c) => a.x - c.x);
-
-      const groups = [];
-      rawMarks.forEach(m => {
-        const last = groups[groups.length - 1];
-        if (last && Math.abs(m.x - last.x) < 4) {
-          last.labels.push(m.label);
-          last.x = (last.x * (last.labels.length - 1) + m.x) / last.labels.length;
-          last.isMc = last.isMc || m.isMc;
-        } else {
-          groups.push({ labels: [m.label], x: m.x, isMc: m.isMc });
-        }
-      });
-
-      const minSep = 17;
-      for (let pass = 0; pass < 4; pass++) {
-        for (let i = 1; i < groups.length; i++) {
-          const d = groups[i].x - groups[i - 1].x;
-          if (d < minSep) {
-            const push = (minSep - d) / 2;
-            groups[i - 1].x -= push;
-            groups[i].x += push;
-          }
-        }
-      }
-
-      const slots = [$('#tmCc'), $('#tmMc'), $('#tmTc')];
-      slots.forEach((el, i) => {
-        const g = groups[i];
-        if (!g) { el.style.display = 'none'; return; }
-        el.style.display = '';
-        el.innerHTML = g.labels.map(lbl => `<span class="${lbl === 'MC' ? 'tm-mc' : ''}">${lbl}</span>`).join('');
-        el.className = 'tape-mark' + (g.isMc ? ' mc' : '');
-        el.style.left = `${g.x}px`;
-      });
-      box.classList.add('show');
-    };
+    const updateMarks = b => renderTapeMarks($('#tapeMarks'), b, ref === 'T');
 
     const tape = Tape(
       $('#tape'),
@@ -577,7 +763,7 @@
       $('#lights').querySelectorAll('[data-j]').forEach(el => el.onclick = () => { k = +el.dataset.j; ctrlOpen = false; render(); });
       $('#nav').classList.toggle('port', isPort);
       $('#prev').textContent = isPort ? 'PREV ▶' : '◀ PREV';
-      const all = measured.every(Boolean), ex = $('#exit'), abortMode = !all && !remeasure;
+      const all = measured.every(Boolean), ex = $('#exit'), abortMode = !all;
       $('#next').textContent = `TURN ${Math.round(step)}° ` + (isPort ? 'PORT ◀' : 'STARBOARD ▶');
       $('#next').className = 't ' + (isMeas && abortMode ? 'acc' : 'alt');
       ex.textContent = abortMode ? 'ABORT' : 'FINISH';
@@ -587,8 +773,8 @@
         if (!ex.classList.contains('holding')) ex.style.setProperty('--p', +raw.get('abortp') || 0);
       } else {
         ex.style.setProperty('--p', 0);
-        ex.href = remeasure ? link('review.html', { ref, var: vr, remeasure: null })
-                            : link('finish.html', { ref, var: vr });
+        const rounds = remeasure ? p.rounds : Math.max(p.round, raw.has('rounds') ? p.rounds : 1);
+        ex.href = link('review.html', { ref, var: vr, rounds, last: steer(k), remeasure: null, at: null, from: null });
       }
       tape.draw();
     }
@@ -654,7 +840,10 @@
 
     $('#prev').onclick = () => { k = (k - 1 + n) % n; ctrlOpen = false; render(); };
     $('#next').onclick = () => { k = (k + 1) % n; ctrlOpen = false; render(); };
-    hold($('#exit'), 2000, () => { location.href = 'start.html'; }, () => !measured.every(Boolean) && !remeasure);
+    const backToReview = remeasure || raw.get('from') === 'review';
+    hold($('#exit'), HOLD_MS, () => {
+      location.href = backToReview ? link('review.html', { ref, var: vr, remeasure: null, at: null, from: null }) : 'start.html';
+    }, () => !measured.every(Boolean));
     stepper($('#minus'), () => { vals[k] = norm(vals[k] - 1); measured[k] = true; render(); });
     stepper($('#plus'),  () => { vals[k] = norm(vals[k] + 1); measured[k] = true; render(); });
     new ResizeObserver(render).observe(document.body);
@@ -716,5 +905,5 @@
     );
   }
 
-  window.Mock = { RAD, norm, fmt3, fmtDev, fmtUse, $, css, accent, params, link, here, SAMPLE, sample, fit, prep, Tape, stepper, drawCurve, hold, measure, applyTheme, wmmDeclination, detectVariation };
+  window.Mock = { RAD, norm, fmt3, roundDev, fmtDev, fmtSigned, fmtUse, $, css, accent, params, link, here, nowUtc, fmtTime, fmtLocal, loadTables, saveTables, saveNewTable, updateTableTitle, TYPE_EXAMPLES, applyTypeExample, renderTapeMarks, SAMPLE, sample, fit, prep, Tape, stepper, drawCurve, roseSvg, HOLD_MS, hold, measure, applyTheme, wmmDeclination, detectVariation };
 })();
